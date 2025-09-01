@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pandas
+sqlalchemy
+psycopg2-binary
+python-multipart
+pydantic-settings
+python-jose[cryptography]
+passlib[bcrypt]
+phonenumbers
