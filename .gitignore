@@ -154,3 +154,5 @@ temp/
 # Docker
 Dockerfile.dev
 docker-compose.override.yml
+
+*.pdf

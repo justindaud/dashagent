@@ -314,99 +314,159 @@ class ProfileTamuHandler:
             rows_inserted = 0
             
             for _, row in df.iterrows():
-                # Get final phone (mobile as primary, phone as fallback)
-                final_phone = str(row.get('Mobile No.', '')) if pd.notna(row.get('Mobile No.', '')) and row.get('Mobile No.', '') != '' else str(row.get('Phone', ''))
-                
-                # Always INSERT into Raw table (ProfileTamu)
-                profile_raw = ProfileTamu(
-                    csv_upload_id=csv_upload.id,
-                    guest_id=str(row['Guest No']),
-                    name=str(row['Name']),
-                    email=str(row.get('Email', '')),
-                    phone=final_phone,
-                    address=str(row.get('Address', '')),
-                    birth_date=str(row.get('Birth Date', '')),
-                    occupation=str(row.get('Occupation', '')),
-                    city=str(row.get('City', '')),
-                    country=str(row.get('Country', '')),
-                    segment=str(row.get('Segment', '')),
-                    type_id=str(row.get('Type ID', '')),
-                    id_no=str(row.get('ID No.', '')),
-                    sex=str(row.get('Sex', '')),
-                    zip_code=str(row.get('Zip', '')),
-                    local_region=str(row.get('L-Region', '')),
-                    telefax=str(row.get('Telefax', '')),
-                    mobile_no=str(row.get('Mobile No.', '')),
-                    comments=str(row.get('Comments', '')),
-                    credit_limit=str(row.get('Credit Lim', '0'))
-                )
-                db.add(profile_raw)
-                rows_inserted += 1
-                print(f"Inserted into Raw: {row['Guest No']} - {row['Name']}")
-                
-                # Check if record already exists in Processed table
-                existing_processed = db.query(ProfileTamuProcessed).filter(
-                    ProfileTamuProcessed.guest_id == str(row['Guest No'])
-                ).first()
-                
-                if existing_processed:
-                    # UPDATE existing Processed record with all fields
-                    existing_processed.name = str(row['Name'])
-                    existing_processed.email = str(row.get('Email', ''))
-                    existing_processed.phone = final_phone
-                    existing_processed.address = str(row.get('Address', ''))
-                    existing_processed.birth_date = str(row.get('Birth Date', ''))
-                    existing_processed.occupation = str(row.get('Occupation', ''))
-                    existing_processed.city = str(row.get('City', ''))
-                    existing_processed.country = str(row.get('Country', ''))
-                    existing_processed.segment = str(row.get('Segment', ''))
-                    existing_processed.type_id = str(row.get('Type ID', ''))
-                    existing_processed.id_no = str(row.get('ID No.', ''))
-                    existing_processed.sex = str(row.get('Sex', ''))
-                    existing_processed.zip_code = str(row.get('Zip Code', ''))
-                    existing_processed.local_region = str(row.get('Local Region', ''))
-                    existing_processed.telefax = str(row.get('Telefax', ''))
-                    existing_processed.mobile_no = str(row.get('Mobile No', ''))
-                    existing_processed.comments = str(row.get('Comments', ''))
-                    existing_processed.credit_limit = str(row.get('Credit Limit', ''))
-                    existing_processed.last_upload_id = csv_upload.id
-                    existing_processed.last_updated = func.now()
+                try:
+                    # Get final phone (mobile as primary, phone as fallback)
+                    final_phone = str(row.get('Mobile No.', '')) if pd.notna(row.get('Mobile No.', '')) and row.get('Mobile No.', '') != '' else str(row.get('Phone', ''))
                     
-                    rows_updated += 1
-                    print(f"Updated Processed: {row['Guest No']} - {row['Name']}")
-                else:
-                    # INSERT new Processed record with all fields
-                    profile_processed = ProfileTamuProcessed(
-                        guest_id=str(row['Guest No']),
-                        name=str(row['Name']),
-                        email=str(row.get('Email', '')),
-                        phone=final_phone,
-                        address=str(row.get('Address', '')),
-                        birth_date=str(row.get('Birth Date', '')),
-                        occupation=str(row.get('Occupation', '')),
-                        city=str(row.get('City', '')),
-                        country=str(row.get('Country', '')),
-                        segment=str(row.get('Segment', '')),
-                        type_id=str(row.get('Type ID', '')),
-                        id_no=str(row.get('ID No.', '')),
-                        sex=str(row.get('Sex', '')),
-                        zip_code=str(row.get('Zip Code', '')),
-                        local_region=str(row.get('Local Region', '')),
-                        telefax=str(row.get('Telefax', '')),
-                        mobile_no=str(row.get('Mobile No', '')),
-                        comments=str(row.get('Comments', '')),
-                        credit_limit=str(row.get('Credit Limit', '')),
-                        last_upload_id=csv_upload.id
-                    )
-                    db.add(profile_processed)
-                    print(f"Inserted into Processed: {row['Guest No']} - {row['Name']}")
-                
-                rows_processed += 1
+                    # Get guest data
+                    name = str(row['Name']).strip()
+                    phone = final_phone.strip()
+                    email = str(row.get('Email', '')).strip()
+                    
+                    # Step 1: Check for existing guest BEFORE generating guest_id
+                    existing_processed = None
+                    existing_guest_id = None
+                    
+                    # Try to find existing guest by name + phone (most reliable)
+                    if name and phone:
+                        existing_processed = db.query(ProfileTamuProcessed).filter(
+                            ProfileTamuProcessed.name == name,
+                            ProfileTamuProcessed.phone == phone
+                        ).first()
+                    
+                    # If not found, try name + email
+                    if not existing_processed and name and email:
+                        existing_processed = db.query(ProfileTamuProcessed).filter(
+                            ProfileTamuProcessed.name == name,
+                            ProfileTamuProcessed.email == email
+                        ).first()
+                    
+                    # If not found, try exact name match (least reliable, but better than duplicating)
+                    if not existing_processed and name:
+                        existing_processed = db.query(ProfileTamuProcessed).filter(
+                            ProfileTamuProcessed.name == name
+                        ).first()
+                    
+                    # Step 2: Generate guest_id based on existing or new
+                    if existing_processed:
+                        # Use existing guest_id to maintain consistency
+                        guest_id = existing_processed.guest_id
+                        existing_guest_id = guest_id
+                    else:
+                        # Generate new guest_id only for truly new guests
+                        if name and phone:
+                            guest_id = f"{name}_{phone}".replace(' ', '_').replace('-', '_')[:50]
+                        elif name and email:
+                            guest_id = f"{name}_{email}".replace(' ', '_').replace('@', '_').replace('.', '_')[:50]
+                        elif name:
+                            guest_id = f"{name}_{rows_processed}".replace(' ', '_')[:50]
+                        else:
+                            guest_id = f"GUEST_{csv_upload.id}_{rows_processed}"
+                    
+                    # Step 3: Check if Raw record already exists with this guest_id
+                    existing_raw = db.query(ProfileTamu).filter(
+                        ProfileTamu.guest_id == guest_id,
+                        ProfileTamu.csv_upload_id == csv_upload.id
+                    ).first()
+                    
+                    if not existing_raw:
+                        # Only INSERT to Raw if not already exists
+                        profile_raw = ProfileTamu(
+                            csv_upload_id=csv_upload.id,
+                            guest_id=guest_id,
+                            name=name,
+                            email=email,
+                            phone=final_phone,
+                            address=str(row.get('Address', '')),
+                            birth_date=str(row.get('Birth Date', '')),
+                            occupation=str(row.get('Occupation', '')),
+                            city=str(row.get('City', '')),
+                            country=str(row.get('Country', '')),
+                            segment=str(row.get('Segment', '')),
+                            type_id=str(row.get('Type ID', '')),
+                            id_no=str(row.get('ID No.', '')),
+                            sex=str(row.get('Sex', '')),
+                            zip_code=str(row.get('Zip', '')),
+                            local_region=str(row.get('L-Region', '')),
+                            telefax=str(row.get('Telefax', '')),
+                            mobile_no=str(row.get('Mobile No.', '')),
+                            comments=str(row.get('Comments', '')),
+                            credit_limit=str(row.get('Credit Lim', '0'))
+                        )
+                        db.add(profile_raw)
+                        db.commit()  # Commit raw data immediately
+                        rows_inserted += 1
+                        print(f"Inserted into Raw: {guest_id} - {name}")
+                    
+                    # Step 4: Handle Processed table
+                    if existing_processed:
+                        # UPDATE existing Processed record with all fields
+                        existing_processed.name = name
+                        existing_processed.email = email
+                        existing_processed.phone = final_phone
+                        existing_processed.address = str(row.get('Address', ''))
+                        existing_processed.birth_date = str(row.get('Birth Date', ''))
+                        existing_processed.occupation = str(row.get('Occupation', ''))
+                        existing_processed.city = str(row.get('City', ''))
+                        existing_processed.country = str(row.get('Country', ''))
+                        existing_processed.segment = str(row.get('Segment', ''))
+                        existing_processed.type_id = str(row.get('Type ID', ''))
+                        existing_processed.id_no = str(row.get('ID No.', ''))
+                        existing_processed.sex = str(row.get('Sex', ''))
+                        existing_processed.zip_code = str(row.get('Zip', ''))
+                        existing_processed.local_region = str(row.get('L-Region', ''))
+                        existing_processed.telefax = str(row.get('Telefax', ''))
+                        existing_processed.mobile_no = str(row.get('Mobile No.', ''))
+                        existing_processed.comments = str(row.get('Comments', ''))
+                        existing_processed.credit_limit = str(row.get('Credit Lim', '0'))
+                        existing_processed.last_upload_id = csv_upload.id
+                        existing_processed.last_updated = func.now()
+                        
+                        rows_updated += 1
+                        print(f"Updated Processed (deduplicated): {existing_guest_id} - {name}")
+                        db.commit()  # Commit update immediately
+                    else:
+                        # INSERT new Processed record with all fields
+                        profile_processed = ProfileTamuProcessed(
+                            guest_id=guest_id,
+                            name=name,
+                            email=email,
+                            phone=final_phone,
+                            address=str(row.get('Address', '')),
+                            birth_date=str(row.get('Birth Date', '')),
+                            occupation=str(row.get('Occupation', '')),
+                            city=str(row.get('City', '')),
+                            country=str(row.get('Country', '')),
+                            segment=str(row.get('Segment', '')),
+                            type_id=str(row.get('Type ID', '')),
+                            id_no=str(row.get('ID No.', '')),
+                            sex=str(row.get('Sex', '')),
+                            zip_code=str(row.get('Zip', '')),
+                            local_region=str(row.get('L-Region', '')),
+                            telefax=str(row.get('Telefax', '')),
+                            mobile_no=str(row.get('Mobile No.', '')),
+                            comments=str(row.get('Comments', '')),
+                            credit_limit=str(row.get('Credit Lim', '0')),
+                            last_upload_id=csv_upload.id
+                        )
+                        db.add(profile_processed)
+                        db.commit()  # Commit insert immediately
+                        rows_inserted += 1
+                        print(f"Inserted into Processed: {guest_id} - {name}")
+                    
+                    rows_processed += 1
+                    
+                except Exception as row_error:
+                    print(f"Error processing row: {row_error}")
+                    print(f"Row data: {row.to_dict()}")
+                    db.rollback()  # Rollback on error
+                    # Continue with next row instead of failing entire upload
+                    continue
             
             # Update upload status
             csv_upload.status = "completed"
             csv_upload.rows_processed = rows_processed
-            db.commit()
+            db.commit()  # Commit status update
             
             print(f"Data processing completed:")
             print(f"- Total records processed: {rows_processed}")
@@ -460,14 +520,15 @@ def strip_country_code(phone: str):
 df["Phone"] = (
     df["Phone"]
     .astype(str)
-    .str.replace(r"\D", "", regex=True)
+    .str.replace(r"\\D", "", regex=True)
+    
     .apply(strip_country_code)
 )
 
 df["Mobile No."] = (
     df["Mobile No."]
     .astype(str)
-    .str.replace(r"\D", "", regex=True)       # remove non-digits
+    .str.replace(r"\\D", "", regex=True)       # remove non-digits
     .apply(strip_country_code)
 )
 df['Mobile No.'] = df['Mobile No.'].fillna(df['Phone'])

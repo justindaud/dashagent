@@ -1,0 +1,73 @@
+Dataset manifest untuk `dashagent` (PostgreSQL)
+
+Overview
+- Database: PostgreSQL dengan connection string dari environment variable DATABASE_URL
+- Tabel utama: `reservasi_processed`, `profile_tamu_processed`, `chat_whatsapp_processed`
+- Tujuan manifest: memberi panduan praktis untuk AI agent bagaimana menggunakan tabel-tabel ini — query umum, kolom kunci, dan contoh-cases.
+
+Tabel: reservasi_processed
+- Tujuan: menyimpan data reservasi yang sudah diproses dan dibersihkan (single source of truth untuk analytics).
+- Kolom kunci yang sering dipakai: `guest_id`, `guest_name`, `mobile_phone`, `email`, `arrival_date`, `depart_date`, `room_rate`, `nights`, `segment`, `room_type`.
+- Use-cases:
+	- Cari reservasi terbaru per nomor telepon atau email.
+	- Gabungkan dengan `profile_tamu_processed` untuk dapatkan profil tamu penuh.
+	- Identifikasi reservasi aktif (arrival_date <= today < depart_date).
+	- Analytics: revenue, occupancy rate, average room rate.
+- Contoh SQL:
+	- Cari reservasi terbaru berdasarkan nomor telepon:
+
+		SELECT * FROM reservasi_processed WHERE mobile_phone = '<number>' ORDER BY arrival_date DESC LIMIT 10;
+
+	- Gabungkan dengan profil tamu:
+
+		SELECT r.*, p.guest_id, p.email, p.mobile_no FROM reservasi_processed r
+		LEFT JOIN profile_tamu_processed p ON (p.mobile_no = r.mobile_phone OR p.phone = r.mobile_phone OR lower(p.email) = lower(r.email))
+		WHERE r.mobile_phone = '<number>' OR lower(r.email) = lower('<email>')
+		ORDER BY r.arrival_date DESC LIMIT 10;
+
+	- Analytics query untuk revenue dan occupancy:
+
+		SELECT 
+			SUM(room_rate * nights) as revenue_sum,
+			SUM(nights) as occupied_room_nights,
+			AVG(room_rate) as arr_simple,
+			COUNT(*) as bookings_count
+		FROM reservasi_processed 
+		WHERE arrival_date < '2024-01-31' AND depart_date > '2024-01-01';
+
+Tabel: profile_tamu_processed
+- Tujuan: master data tamu yang sudah diproses untuk lookup dan personalisasi.
+- Kolom kunci: `guest_id`, `mobile_no`, `phone`, `email`, `name`, `id_no`.
+- Use-cases:
+	- Lookup profil tamu dari nomor WA atau email.
+	- Sinkronisasi profil tamu saat ada pembaruan kontak.
+	- Analytics: segmentasi tamu berdasarkan demografi.
+- Contoh SQL:
+
+		SELECT * FROM profile_tamu_processed WHERE mobile_no = '<number>' OR phone = '<number>' OR lower(email) = lower('<email>') LIMIT 5;
+
+		-- cari kemungkinan duplikat berdasarkan nama + tanggal lahir
+		SELECT * FROM profile_tamu_processed WHERE name LIKE '%<name_fragment>%' AND birth_date = '<yyyy-mm-dd>' LIMIT 20;
+
+		-- analytics: segmentasi berdasarkan city
+		SELECT local_region, COUNT(*) as guest_count FROM profile_tamu_processed GROUP BY local_region ORDER BY guest_count DESC;
+
+Tabel: chat_whatsapp_processed
+- Tujuan: menyimpan log pesan WhatsApp yang sudah diproses untuk analisis percakapan dan intent detection.
+- Kolom kunci: `id`, `phone_number`, `message_date`, `message`.
+- Use-cases:
+	- Ambil riwayat percakapan per nomor untuk konteks percakapan chatbot.
+	- Cari pesan masuk terbaru untuk agen manusia.
+	- Analisis frekuensi pertanyaan umum (NLP, intent extraction).
+- Contoh SQL:
+
+		SELECT * FROM chat_whatsapp_processed WHERE phone_number = '<number>' ORDER BY message_date DESC LIMIT 50;
+
+		-- cari pesan yang mengandung kata kunci (case insensitive)
+		SELECT * FROM chat_whatsapp_processed WHERE lower(message) LIKE '%<keyword>%' ORDER BY message_date DESC LIMIT 100;
+
+		-- analytics: volume chat per hari
+		SELECT DATE(message_date) as chat_date, COUNT(*) as message_count 
+		FROM chat_whatsapp_processed 
+		GROUP BY DATE(message_date) 
+		ORDER BY chat_date DESC LIMIT 30;

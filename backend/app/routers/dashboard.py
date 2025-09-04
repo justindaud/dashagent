@@ -19,11 +19,16 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
         total_chats = db.query(ChatWhatsappProcessed).count()
         total_transactions = db.query(TransaksiRestoProcessed).count()
         
-    return {
+        # Get latest depart_date for default date range
+        latest_depart = db.query(func.max(ReservasiProcessed.depart_date)).scalar()
+        latest_depart_str = latest_depart.strftime('%Y-%m-%d') if latest_depart else None
+        
+        return {
             "total_guests": total_guests,
             "total_reservations": total_reservations,
             "total_chats": total_chats,
             "total_transactions": total_transactions,
+            "latest_depart_date": latest_depart_str,
             "last_updated": datetime.now().isoformat()
         }
     except Exception as e:
@@ -78,7 +83,7 @@ async def get_data_preview(
 
 @router.delete("/upload/{upload_id}")
 async def delete_csv_upload(upload_id: int, db: Session = Depends(get_db)):
-    """Delete CSV upload and re-process Processed tables"""
+    """Delete CSV upload and rollback affected Processed data"""
     try:
         from app.models import CSVUpload
         
@@ -87,69 +92,142 @@ async def delete_csv_upload(upload_id: int, db: Session = Depends(get_db)):
         if not upload:
             raise HTTPException(status_code=404, detail="Upload not found")
         
-        # Delete the upload record (otomatis hapus semua data Raw karena cascade delete)
+        # Step 1: Rollback affected ProfileTamuProcessed records
+        affected_profiles = db.query(ProfileTamuProcessed).filter(
+            ProfileTamuProcessed.last_upload_id == upload_id
+        ).all()
+        
+        profiles_rolled_back = 0
+        profiles_deleted = 0
+        
+        for profile in affected_profiles:
+            # Find previous version from Raw data
+            previous_profile = db.query(ProfileTamu).filter(
+                ProfileTamu.guest_id == profile.guest_id,
+                ProfileTamu.csv_upload_id != upload_id
+            ).order_by(ProfileTamu.csv_upload_id.desc()).first()
+            
+            if previous_profile:
+                # Rollback to previous state
+                profile.name = previous_profile.name
+                profile.email = previous_profile.email
+                profile.phone = previous_profile.phone
+                profile.address = previous_profile.address
+                profile.birth_date = previous_profile.birth_date
+                profile.occupation = previous_profile.occupation
+                profile.city = previous_profile.city
+                profile.country = previous_profile.country
+                profile.segment = previous_profile.segment
+                profile.type_id = previous_profile.type_id
+                profile.id_no = previous_profile.id_no
+                profile.sex = previous_profile.sex
+                profile.zip_code = previous_profile.zip_code
+                profile.local_region = previous_profile.local_region
+                profile.telefax = previous_profile.telefax
+                profile.mobile_no = previous_profile.mobile_no
+                profile.comments = previous_profile.comments
+                profile.credit_limit = previous_profile.credit_limit
+                profile.last_upload_id = previous_profile.csv_upload_id
+                profile.last_updated = func.now()
+                profiles_rolled_back += 1
+                print(f"Rolled back profile: {profile.guest_id} to upload {previous_profile.csv_upload_id}")
+            else:
+                # No previous data, delete this processed record
+                db.delete(profile)
+                profiles_deleted += 1
+                print(f"Deleted profile: {profile.guest_id} (no previous data)")
+        
+        # Step 2: Rollback affected ReservasiProcessed records
+        affected_reservations = db.query(ReservasiProcessed).filter(
+            ReservasiProcessed.last_upload_id == upload_id
+        ).all()
+        
+        reservations_rolled_back = 0
+        reservations_deleted = 0
+        
+        for reservation in affected_reservations:
+            # Find previous version from Raw data
+            previous_reservation = db.query(Reservasi).filter(
+                Reservasi.arrival_date == reservation.arrival_date,
+                Reservasi.depart_date == reservation.depart_date,
+                Reservasi.room_number == reservation.room_number,
+                Reservasi.csv_upload_id != upload_id
+            ).order_by(Reservasi.csv_upload_id.desc()).first()
+            
+            if previous_reservation:
+                # Rollback to previous state
+                reservation.reservation_id = previous_reservation.reservation_id
+                reservation.guest_id = previous_reservation.guest_id
+                reservation.guest_name = previous_reservation.guest_name
+                reservation.room_number = previous_reservation.room_number
+                reservation.room_type = previous_reservation.room_type
+                reservation.arrangement = previous_reservation.arrangement
+                reservation.in_house_date = previous_reservation.in_house_date
+                reservation.arrival_date = previous_reservation.arrival_date
+                reservation.depart_date = previous_reservation.depart_date
+                reservation.check_in_time = previous_reservation.check_in_time
+                reservation.check_out_time = previous_reservation.check_out_time
+                reservation.created_date = previous_reservation.created_date
+                reservation.birth_date = previous_reservation.birth_date
+                reservation.age = previous_reservation.age
+                reservation.member_no = previous_reservation.member_no
+                reservation.member_type = previous_reservation.member_type
+                reservation.email = previous_reservation.email
+                reservation.mobile_phone = previous_reservation.mobile_phone
+                reservation.vip_status = previous_reservation.vip_status
+                reservation.room_rate = previous_reservation.room_rate
+                reservation.lodging = previous_reservation.lodging
+                reservation.breakfast = previous_reservation.breakfast
+                reservation.lunch = previous_reservation.lunch
+                reservation.dinner = previous_reservation.dinner
+                reservation.other_charges = previous_reservation.other_charges
+                reservation.total_amount = previous_reservation.total_amount
+                reservation.bill_number = previous_reservation.bill_number
+                reservation.pay_article = previous_reservation.pay_article
+                reservation.rate_code = previous_reservation.rate_code
+                reservation.res_no = previous_reservation.res_no
+                reservation.adult_count = previous_reservation.adult_count
+                reservation.child_count = previous_reservation.child_count
+                reservation.compliment = previous_reservation.compliment
+                reservation.nationality = previous_reservation.nationality
+                reservation.local_region = previous_reservation.local_region
+                reservation.company_ta = previous_reservation.company_ta
+                reservation.sob = previous_reservation.sob
+                reservation.nights = previous_reservation.nights
+                reservation.segment = previous_reservation.segment
+                reservation.created_by = previous_reservation.created_by
+                reservation.k_card = previous_reservation.k_card
+                reservation.remarks = previous_reservation.remarks
+                reservation.last_upload_id = previous_reservation.csv_upload_id
+                reservation.last_updated = func.now()
+                reservations_rolled_back += 1
+                print(f"Rolled back reservation: {reservation.arrival_date} - {reservation.depart_date} - Room {reservation.room_number}")
+            else:
+                # No previous data, delete this processed record
+                db.delete(reservation)
+                reservations_deleted += 1
+                print(f"Deleted reservation: {reservation.arrival_date} - {reservation.depart_date} - Room {reservation.room_number} (no previous data)")
+        
+        # Step 3: Delete Raw data from this upload
+        db.query(ProfileTamu).filter(ProfileTamu.csv_upload_id == upload_id).delete()
+        db.query(Reservasi).filter(Reservasi.csv_upload_id == upload_id).delete()
+        db.query(ChatWhatsapp).filter(ChatWhatsapp.csv_upload_id == upload_id).delete()
+        db.query(TransaksiResto).filter(TransaksiResto.csv_upload_id == upload_id).delete()
+        
+        # Step 4: Delete the upload record
         db.delete(upload)
         db.commit()
         
-        # Re-process Processed tables from remaining Raw data
-        await reprocess_processed_tables(db)
-        
-        return {"message": f"Upload {upload_id} deleted successfully and Processed tables re-processed"}
+        return {
+            "message": f"Upload {upload_id} deleted successfully",
+            "details": {
+                "profiles_rolled_back": profiles_rolled_back,
+                "profiles_deleted": profiles_deleted,
+                "reservations_rolled_back": reservations_rolled_back,
+                "reservations_deleted": reservations_deleted
+            }
+        }
         
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error deleting upload: {str(e)}")
-
-async def reprocess_processed_tables(db: Session):
-    """Re-process Processed tables from remaining Raw data"""
-    try:
-        # Clear all Processed tables
-        db.query(ProfileTamuProcessed).delete()
-        db.query(ReservasiProcessed).delete()
-        db.query(ChatWhatsappProcessed).delete()
-        db.query(TransaksiRestoProcessed).delete()
-        
-        # Re-process ProfileTamuProcessed - ambil data terbaru per guest_id
-        from sqlalchemy import text
-        profile_query = text("""
-            INSERT INTO profile_tamu_processed (guest_id, name, email, phone, address, birth_date, occupation, city, country, segment, type_id, id_no, sex, zip_code, local_region, telefax, mobile_no, comments, credit_limit, last_updated, last_upload_id)
-            SELECT DISTINCT ON (guest_id) guest_id, name, email, phone, address, birth_date, occupation, city, country, segment, type_id, id_no, sex, zip_code, local_region, telefax, mobile_no, comments, credit_limit, NOW(), csv_upload_id
-            FROM profile_tamu 
-            ORDER BY guest_id, csv_upload_id DESC
-        """)
-        db.execute(profile_query)
-        
-        # Re-process ReservasiProcessed - ambil data terbaru per kombinasi arrival+depart+room
-        reservasi_query = text("""
-            INSERT INTO reservasi_processed (reservation_id, guest_id, guest_name, room_number, room_type, arrangement, in_house_date, arrival_date, depart_date, check_in_time, check_out_time, created_date, birth_date, age, member_no, member_type, email, mobile_phone, vip_status, room_rate, lodging, breakfast, lunch, dinner, other_charges, total_amount, bill_number, pay_article, rate_code, res_no, adult_count, child_count, compliment, nationality, local_region, company_ta, sob, nights, segment, created_by, k_card, remarks, last_updated, last_upload_id)
-            SELECT DISTINCT ON (arrival_date, depart_date, room_number) reservation_id, guest_id, guest_name, room_number, room_type, arrangement, in_house_date, arrival_date, depart_date, check_in_time, check_out_time, created_date, birth_date, age, member_no, member_type, email, mobile_phone, vip_status, room_rate, lodging, breakfast, lunch, dinner, other_charges, total_amount, bill_number, pay_article, rate_code, res_no, adult_count, child_count, compliment, nationality, local_region, company_ta, sob, nights, segment, created_by, k_card, remarks, NOW(), csv_upload_id
-            FROM reservasi 
-            ORDER BY arrival_date, depart_date, room_number, csv_upload_id DESC
-        """)
-        db.execute(reservasi_query)
-        
-        # Re-process ChatWhatsappProcessed - ambil data terbaru per kombinasi phone+date+message
-        chat_query = text("""
-            INSERT INTO chat_whatsapp_processed (phone_number, message_type, message_date, message, last_updated, last_upload_id)
-            SELECT DISTINCT ON (phone_number, message_date, message) phone_number, message_type, message_date, message, NOW(), csv_upload_id
-            FROM chat_whatsapp 
-            ORDER BY phone_number, message_date, message, csv_upload_id DESC
-        """)
-        db.execute(chat_query)
-        
-        # Re-process TransaksiRestoProcessed - ambil data terbaru per kombinasi transaction+guest+timestamp
-        transaksi_query = text("""
-            INSERT INTO transaksi_resto_processed (transaction_id, guest_id, item_name, quantity, price, total_amount, timestamp, last_updated, last_upload_id)
-            SELECT DISTINCT ON (transaction_id, guest_id, timestamp) transaction_id, guest_id, item_name, quantity, price, total_amount, timestamp, NOW(), csv_upload_id
-            FROM transaksi_resto 
-            ORDER BY transaction_id, guest_id, timestamp, csv_upload_id DESC
-        """)
-        db.execute(transaksi_query)
-        
-        db.commit()
-        print("Processed tables re-processed successfully using DISTINCT ON logic")
-        
-    except Exception as e:
-        db.rollback()
-        print(f"Error re-processing Processed tables: {str(e)}")
-        raise

@@ -138,10 +138,18 @@ class ReservasiHandler:
                 df['Email'] = df['Email'].replace(['', 'NULL', 'NaN', 'nan'], '')
             
             # Convert numeric fields
-            numeric_columns = ['Room Rate', 'Lodging', 'Breakfast', 'Lunch', 'Dinner', 'Other', 'Age', 'Adult', 'Child', 'Night']
-            for col in numeric_columns:
+            # Handle currency columns (remove commas before converting)
+            currency_columns = ['Room Rate', 'Lodging', 'Breakfast', 'Lunch', 'Dinner', 'Other']
+            for col in currency_columns:
                 if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                    # Remove commas (thousand separators), keep dots (decimal separators)
+                    df[col] = df[col].astype(str).str.replace(',', '').apply(pd.to_numeric, errors='coerce').fillna(0)
+            
+            # Handle other numeric columns normally
+            other_numeric_columns = ['Age', 'Adult', 'Child', 'Night']
+            for col in other_numeric_columns:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             
             # Clean other fields
             if 'Segment' in df.columns:
@@ -194,138 +202,45 @@ class ReservasiHandler:
             rows_inserted = 0
             
             for _, row in df.iterrows():
-                # Get guest name
-                guest_name = str(row.get('Guest Name', ''))
-                if not guest_name:
-                    guest_name = f"{str(row.get('First Name', ''))} {str(row.get('Last Name', ''))}".strip()
-                
-                # Get dates - parse as DateTime for Processed table consistency
-                in_house_date = str(row.get('In House Date', ''))
-                arrival_date = pd.to_datetime(row.get('Arrival', ''))
-                depart_date = pd.to_datetime(row.get('Depart', ''))
-                room_number = str(row['Room Number'])
-                
-                # Calculate total amount
-                room_rate = float(row.get('Room Rate', 0)) if pd.notna(row.get('Room Rate')) else 0
-                nights = int(row.get('Night', 1)) if pd.notna(row.get('Night')) else 1
-                total_amount = room_rate * nights
-                
-                # Always INSERT into Raw table (Reservasi)
-                reservation_raw = Reservasi(
-                    csv_upload_id=csv_upload.id,
-                    reservation_id=str(row['Res No']),
-                    guest_id=str(row['Guest No']),
-                    guest_name=guest_name,
-                    room_number=room_number,
-                    room_type=str(row.get('Room Type', '')),
-                    arrangement=str(row.get('Arrangement', '')),
-                    in_house_date=in_house_date,
-                    arrival_date=arrival_date,
-                    depart_date=depart_date,
-                    check_in_time=str(row.get('C/I Time', '')),
-                    check_out_time=str(row.get('C/O Time', '')),
-                    created_date=str(row.get('Created', '')),
-                    birth_date=str(row.get('Birth Date', '')),
-                    age=int(row.get('Age', 0)) if pd.notna(row.get('Age')) else 0,
-                    member_no=str(row.get('Member No', '')),
-                    member_type=str(row.get('Member Type', '')),
-                    email=str(row.get('Email', '')),
-                    mobile_phone=str(row.get('Mobile  Phone', '')),  # Note: CSV has double space
-                    vip_status=str(row.get('VIP', '')),
-                    room_rate=room_rate,
-                    lodging=float(row.get('Lodging', 0)) if pd.notna(row.get('Lodging')) else 0,
-                    breakfast=float(row.get('Breakfast', 0)) if pd.notna(row.get('Breakfast')) else 0,
-                    lunch=float(row.get('Lunch', 0)) if pd.notna(row.get('Lunch')) else 0,
-                    dinner=float(row.get('Dinner', 0)) if pd.notna(row.get('Dinner')) else 0,
-                    other_charges=float(row.get('Other', 0)) if pd.notna(row.get('Other')) else 0,
-                    total_amount=total_amount,
-                    bill_number=str(row.get('Bill Number', '')),
-                    pay_article=str(row.get('Pay Article', '')),
-                    rate_code=str(row.get('Rate Code', '')),
-                    res_no=str(row.get('Res No', '')),
-                    adult_count=int(row.get('Adult', 0)) if pd.notna(row.get('Adult')) else 0,
-                    child_count=int(row.get('Child', 0)) if pd.notna(row.get('Child')) else 0,
-                    compliment=str(row.get('Compliment', '')),
-                        nationality=str(row.get('Nat', '')),
-                        local_region=str(row.get('Local Region', '')),
-                        company_ta=str(row.get('Company / TA', '')),
-                        sob=str(row.get('SOB', '')),
-                        nights=nights,
-                        segment=str(row.get('Segment', '')),
-                        created_by=str(row.get('By', '')),
-                        k_card=str(row.get('K-Card', '')),
-                        remarks=str(row.get('remarks', ''))
-                )
-                db.add(reservation_raw)
-                rows_inserted += 1
-                print(f"Inserted into Raw: {arrival_date} - {depart_date} - Room {room_number}")
-                
-                # Check if record already exists in Processed table
-                existing_processed = db.query(ReservasiProcessed).filter(
-                    ReservasiProcessed.arrival_date == arrival_date,
-                    ReservasiProcessed.depart_date == depart_date,
-                    ReservasiProcessed.room_number == room_number
-                ).first()
-                
-                if existing_processed:
-                    # UPDATE existing Processed record with all fields
-                    existing_processed.reservation_id = str(row.get('Number', ''))
-                    existing_processed.guest_id = str(row['Guest No'])
-                    existing_processed.guest_name = guest_name
-                    existing_processed.room_number = room_number
-                    existing_processed.room_type = str(row.get('Room Type', ''))
-                    existing_processed.arrangement = str(row.get('Arrangement', ''))
-                    existing_processed.in_house_date = str(row.get('In House Date', ''))
-                    existing_processed.arrival_date = arrival_date
-                    existing_processed.depart_date = depart_date
-                    existing_processed.check_in_time = str(row.get('C/I Time', ''))
-                    existing_processed.check_out_time = str(row.get('C/O Time', ''))
-                    existing_processed.created_date = str(row.get('Created', ''))
-                    existing_processed.birth_date = str(row.get('Birth Date', ''))
-                    existing_processed.age = int(row.get('Age', 0)) if pd.notna(row.get('Age')) else 0
-                    existing_processed.member_no = str(row.get('Member No', ''))
-                    existing_processed.member_type = str(row.get('Member Type', ''))
-                    existing_processed.email = str(row.get('Email', ''))
-                    existing_processed.mobile_phone = str(row.get('Mobile  Phone', ''))
-                    existing_processed.vip_status = str(row.get('VIP', ''))
-                    existing_processed.room_rate = room_rate
-                    existing_processed.lodging = float(row.get('Lodging', 0)) if pd.notna(row.get('Lodging')) else 0
-                    existing_processed.breakfast = float(row.get('Breakfast', 0)) if pd.notna(row.get('Breakfast')) else 0
-                    existing_processed.lunch = float(row.get('Lunch', 0)) if pd.notna(row.get('Lunch')) else 0
-                    existing_processed.dinner = float(row.get('Dinner', 0)) if pd.notna(row.get('Dinner')) else 0
-                    existing_processed.other_charges = float(row.get('Other', 0)) if pd.notna(row.get('Other')) else 0
-                    existing_processed.total_amount = total_amount
-                    existing_processed.bill_number = str(row.get('Bill Number', ''))
-                    existing_processed.pay_article = str(row.get('Pay Article', ''))
-                    existing_processed.rate_code = str(row.get('Rate Code', ''))
-                    existing_processed.res_no = str(row.get('Res No', ''))
-                    existing_processed.adult_count = int(row.get('Adult', 0)) if pd.notna(row.get('Adult')) else 0
-                    existing_processed.child_count = int(row.get('Child', 0)) if pd.notna(row.get('Child')) else 0
-                    existing_processed.compliment = str(row.get('Compliment', ''))
-                    existing_processed.nationality = str(row.get('Nat', ''))
-                    existing_processed.local_region = str(row.get('Local Region', ''))
-                    existing_processed.company_ta = str(row.get('Company / TA', ''))
-                    existing_processed.sob = str(row.get('SOB', ''))
-                    existing_processed.nights = nights
-                    existing_processed.segment = str(row.get('Segment', ''))
-                    existing_processed.created_by = str(row.get('By', ''))
-                    existing_processed.k_card = str(row.get('K-Card', ''))
-                    existing_processed.remarks = str(row.get('remarks', ''))
-                    existing_processed.last_upload_id = csv_upload.id
-                    existing_processed.last_updated = func.now()
+                try:
+                    # Get guest name
+                    guest_name = str(row.get('Guest Name', ''))
+                    if not guest_name:
+                        guest_name = f"{str(row.get('First Name', ''))} {str(row.get('Last Name', ''))}".strip()
                     
-                    rows_updated += 1
-                    print(f"Updated Processed: {arrival_date} - {depart_date} - Room {room_number}")
-                else:
-                    # INSERT new Processed record with all fields
-                    reservation_processed = ReservasiProcessed(
-                        reservation_id=str(row.get('Number', '')),
-                        guest_id=str(row['Guest No']),
+                    # Get dates - parse as DateTime for Processed table consistency
+                    in_house_date = str(row.get('In House Date', ''))
+                    arrival_date = pd.to_datetime(row.get('Arrival', ''))
+                    depart_date = pd.to_datetime(row.get('Depart', ''))
+                    room_number = str(row['Room Number'])
+                    
+                    # Generate unique guest_id since source system doesn't provide valid Guest No
+                    # Use combination of guest_name + room_number + arrival_date to create unique identifier
+                    guest_id = str(row.get('Guest No', ''))
+                    if guest_id == 'nan' or pd.isna(row.get('Guest No')) or guest_id == '':
+                        # Create unique guest_id based on available data
+                        if guest_name and room_number:
+                            guest_id = f"{guest_name}_{room_number}_{arrival_date.strftime('%Y%m%d')}".replace(' ', '_').replace('-', '_')[:50]
+                        elif guest_name:
+                            guest_id = f"{guest_name}_{arrival_date.strftime('%Y%m%d')}_{rows_processed}".replace(' ', '_')[:50]
+                        else:
+                            guest_id = f"GUEST_{csv_upload.id}_{rows_processed}"
+                    
+                    # Calculate total amount
+                    room_rate = float(row.get('Room Rate', 0)) if pd.notna(row.get('Room Rate')) else 0
+                    nights = int(row.get('Night', 1)) if pd.notna(row.get('Night')) else 1
+                    total_amount = room_rate * nights
+                    
+                    # Always INSERT into Raw table (Reservasi)
+                    reservation_raw = Reservasi(
+                        csv_upload_id=csv_upload.id,
+                        reservation_id=str(row.get('Res No', '')),
+                        guest_id=guest_id,
                         guest_name=guest_name,
                         room_number=room_number,
                         room_type=str(row.get('Room Type', '')),
                         arrangement=str(row.get('Arrangement', '')),
-                        in_house_date=str(row.get('In House Date', '')),
+                        in_house_date=in_house_date,
                         arrival_date=arrival_date,
                         depart_date=depart_date,
                         check_in_time=str(row.get('C/I Time', '')),
@@ -336,7 +251,7 @@ class ReservasiHandler:
                         member_no=str(row.get('Member No', '')),
                         member_type=str(row.get('Member Type', '')),
                         email=str(row.get('Email', '')),
-                        mobile_phone=str(row.get('Mobile  Phone', '')),
+                        mobile_phone=str(row.get('Mobile  Phone', '')),  # Note: CSV has double space
                         vip_status=str(row.get('VIP', '')),
                         room_rate=room_rate,
                         lodging=float(row.get('Lodging', 0)) if pd.notna(row.get('Lodging')) else 0,
@@ -360,18 +275,136 @@ class ReservasiHandler:
                         segment=str(row.get('Segment', '')),
                         created_by=str(row.get('By', '')),
                         k_card=str(row.get('K-Card', '')),
-                        remarks=str(row.get('remarks', '')),
-                        last_upload_id=csv_upload.id
+                        remarks=str(row.get('remarks', ''))
                     )
-                    db.add(reservation_processed)
-                    print(f"Inserted into Processed: {arrival_date} - {depart_date} - Room {room_number}")
-                
-                rows_processed += 1
+                    db.add(reservation_raw)
+                    db.commit()  # Commit raw data immediately
+                    rows_inserted += 1
+                    print(f"Inserted into Raw: {arrival_date} - {depart_date} - Room {room_number}")
+                    
+                    # Use proper upsert logic for Processed table
+                    # Check if record already exists by unique constraint
+                    existing_processed = db.query(ReservasiProcessed).filter(
+                        ReservasiProcessed.arrival_date == arrival_date,
+                        ReservasiProcessed.depart_date == depart_date,
+                        ReservasiProcessed.room_number == room_number
+                    ).first()
+                    
+                    if existing_processed:
+                        # UPDATE existing record with latest data
+                        existing_processed.reservation_id = str(row.get('Res No', ''))
+                        existing_processed.guest_id = guest_id
+                        existing_processed.guest_name = guest_name
+                        existing_processed.room_number = room_number
+                        existing_processed.room_type = str(row.get('Room Type', ''))
+                        existing_processed.arrangement = str(row.get('Arrangement', ''))
+                        existing_processed.in_house_date = str(row.get('In House Date', ''))
+                        existing_processed.arrival_date = arrival_date
+                        existing_processed.depart_date = depart_date
+                        existing_processed.check_in_time = str(row.get('C/I Time', ''))
+                        existing_processed.check_out_time = str(row.get('C/O Time', ''))
+                        existing_processed.created_date = str(row.get('Created', ''))
+                        existing_processed.birth_date = str(row.get('Birth Date', ''))
+                        existing_processed.age = int(row.get('Age', 0)) if pd.notna(row.get('Age')) else 0
+                        existing_processed.member_no = str(row.get('Member No', ''))
+                        existing_processed.member_type = str(row.get('Member Type', ''))
+                        existing_processed.email = str(row.get('Email', ''))
+                        existing_processed.mobile_phone = str(row.get('Mobile  Phone', ''))
+                        existing_processed.vip_status = str(row.get('VIP', ''))
+                        existing_processed.room_rate = room_rate
+                        existing_processed.lodging = float(row.get('Lodging', 0)) if pd.notna(row.get('Lodging')) else 0
+                        existing_processed.breakfast = float(row.get('Breakfast', 0)) if pd.notna(row.get('Breakfast')) else 0
+                        existing_processed.lunch = float(row.get('Lunch', 0)) if pd.notna(row.get('Lunch')) else 0
+                        existing_processed.dinner = float(row.get('Dinner', 0)) if pd.notna(row.get('Dinner')) else 0
+                        existing_processed.other_charges = float(row.get('Other', 0)) if pd.notna(row.get('Other')) else 0
+                        existing_processed.total_amount = total_amount
+                        existing_processed.bill_number = str(row.get('Bill Number', ''))
+                        existing_processed.pay_article = str(row.get('Pay Article', ''))
+                        existing_processed.rate_code = str(row.get('Rate Code', ''))
+                        existing_processed.res_no = str(row.get('Res No', ''))
+                        existing_processed.adult_count = int(row.get('Adult', 0)) if pd.notna(row.get('Adult')) else 0
+                        existing_processed.child_count = int(row.get('Child', 0)) if pd.notna(row.get('Child')) else 0
+                        existing_processed.compliment = str(row.get('Compliment', ''))
+                        existing_processed.nationality = str(row.get('Nat', ''))
+                        existing_processed.local_region = str(row.get('Local Region', ''))
+                        existing_processed.company_ta = str(row.get('Company / TA', ''))
+                        existing_processed.sob = str(row.get('SOB', ''))
+                        existing_processed.nights = nights
+                        existing_processed.segment = str(row.get('Segment', ''))
+                        existing_processed.created_by = str(row.get('By', ''))
+                        existing_processed.k_card = str(row.get('K-Card', ''))
+                        existing_processed.remarks = str(row.get('remarks', ''))
+                        existing_processed.last_upload_id = csv_upload.id
+                        existing_processed.last_updated = func.now()
+                        
+                        rows_updated += 1
+                        print(f"Updated Processed: {arrival_date} - {depart_date} - Room {room_number}")
+                        db.commit()  # Commit update immediately
+                    else:
+                        # INSERT new record (first row of exploded data)
+                        reservation_processed = ReservasiProcessed(
+                            reservation_id=str(row.get('Res No', '')),
+                            guest_id=guest_id,
+                            guest_name=guest_name,
+                            room_number=room_number,
+                            room_type=str(row.get('Room Type', '')),
+                            arrangement=str(row.get('Arrangement', '')),
+                            in_house_date=str(row.get('In House Date', '')),
+                            arrival_date=arrival_date,
+                            depart_date=depart_date,
+                            check_in_time=str(row.get('C/I Time', '')),
+                            check_out_time=str(row.get('C/O Time', '')),
+                            created_date=str(row.get('Created', '')),
+                            birth_date=str(row.get('Birth Date', '')),
+                            age=int(row.get('Age', 0)) if pd.notna(row.get('Age')) else 0,
+                            member_no=str(row.get('Member No', '')),
+                            member_type=str(row.get('Member Type', '')),
+                            email=str(row.get('Email', '')),
+                            mobile_phone=str(row.get('Mobile  Phone', '')),
+                            vip_status=str(row.get('VIP', '')),
+                            room_rate=room_rate,
+                            lodging=float(row.get('Lodging', 0)) if pd.notna(row.get('Lodging')) else 0,
+                            breakfast=float(row.get('Breakfast', 0)) if pd.notna(row.get('Breakfast')) else 0,
+                            lunch=float(row.get('Lunch', 0)) if pd.notna(row.get('Lunch')) else 0,
+                            dinner=float(row.get('Dinner', 0)) if pd.notna(row.get('Dinner')) else 0,
+                            other_charges=float(row.get('Other', 0)) if pd.notna(row.get('Other')) else 0,
+                            total_amount=total_amount,
+                            bill_number=str(row.get('Bill Number', '')),
+                            pay_article=str(row.get('Pay Article', '')),
+                            rate_code=str(row.get('Rate Code', '')),
+                            res_no=str(row.get('Res No', '')),
+                            adult_count=int(row.get('Adult', 0)) if pd.notna(row.get('Adult')) else 0,
+                            child_count=int(row.get('Child', 0)) if pd.notna(row.get('Child')) else 0,
+                            compliment=str(row.get('Compliment', '')),
+                            nationality=str(row.get('Nat', '')),
+                            local_region=str(row.get('Local Region', '')),
+                            company_ta=str(row.get('Company / TA', '')),
+                            sob=str(row.get('SOB', '')),
+                            nights=nights,
+                            segment=str(row.get('Segment', '')),
+                            created_by=str(row.get('By', '')),
+                            k_card=str(row.get('K-Card', '')),
+                            remarks=str(row.get('remarks', '')),
+                            last_upload_id=csv_upload.id
+                        )
+                        db.add(reservation_processed)
+                        db.commit()  # Commit insert immediately
+                        rows_inserted += 1
+                        print(f"Inserted into Processed: {arrival_date} - {depart_date} - Room {room_number}")
+                    
+                    rows_processed += 1
+                    
+                except Exception as row_error:
+                    print(f"Error processing row: {row_error}")
+                    print(f"Row data: {row.to_dict()}")
+                    db.rollback()  # Rollback on error
+                    # Continue with next row instead of failing entire upload
+                    continue
             
             # Update upload status
             csv_upload.status = "completed"
             csv_upload.rows_processed = rows_processed
-            db.commit()
+            db.commit()  # Commit status update
             
             print(f"Reservation data processing completed:")
             print(f"- Total records processed: {rows_processed}")

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, csv as csv_router, dashboard
+from app.routers import auth, csv as csv_router, dashboard, analytics
 from app.database import engine
 from app import models
 
@@ -23,6 +23,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(csv_router.router, tags=["csv"])
 app.include_router(dashboard.router, tags=["dashboard"])
+app.include_router(analytics.router, tags=["analytics"])
 
 
 @app.get("/")

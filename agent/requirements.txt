@@ -1,0 +1,15 @@
+asyncpg
+pydantic
+duckduckgo-search
+bs4
+requests
+rich
+python-dotenv
+openai-agents
+psycopg[binary]
+sqlalchemy
+pandas
+sqlalchemy[asyncio]
+openai
+fastapi
+uvicorn
