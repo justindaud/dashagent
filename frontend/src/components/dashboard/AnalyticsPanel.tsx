@@ -5,6 +5,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { PieChartContainer } from "@/components/ui/chart";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { DimensionOptions, GroupBy, PanelState } from "@/lib/types";
 
@@ -59,18 +60,20 @@ export function AnalyticsPanel({
             {/* Group By Dropdown */}
             <div className="space-y-2">
               <label className="text-sm text-gray-600 font-medium">Group By</label>
-              <select
-                value={state.group_by}
-                onChange={(e) => handleStateChange("group_by", e.target.value as GroupBy)}
-                className="w-full border rounded px-2 py-1 mt-1 hover:border-primary bg-white"
-              >
-                <option value="none">None</option>
-                <option value="segment">Segment</option>
-                <option value="room_type">Room Type</option>
-                <option value="local_region">City (local_region)</option>
-                <option value="nationality">Nationality</option>
-                <option value="age_group">Age Group</option>
-              </select>
+
+              <Select value={state.group_by} onValueChange={(value) => handleStateChange("group_by", value as GroupBy)}>
+                <SelectTrigger className="w-full bg-white hover:border-primary">
+                  <SelectValue placeholder="Select how to group data" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="segment">Segment</SelectItem>
+                  <SelectItem value="room_type">Room Type</SelectItem>
+                  <SelectItem value="local_region">City (local_region)</SelectItem>
+                  <SelectItem value="nationality">Nationality</SelectItem>
+                  <SelectItem value="age_group">Age Group</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Filter Segments */}
