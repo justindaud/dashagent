@@ -7,12 +7,10 @@ import { DashboardStats, DimensionOptions, PanelState, AnalyticsResponse } from 
 import { Header } from "../components/dashboard/Header";
 import { StatCards } from "../components/dashboard/StatCards";
 import { AnalyticsDashboard } from "../components/dashboard/AnalyticsDashboard";
-import { ChatModal } from "../components/dashboard/ChatModal";
 import { UploadModal } from "../components/dashboard/UploadModal";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   const [compareOn, setCompareOn] = useState(false);
@@ -138,8 +136,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header onUploadClick={() => setIsUploadModalOpen(true)} onChatClick={() => setIsChatbotOpen(true)} />
-
+      <Header page="dashboard" onUploadClick={() => setIsUploadModalOpen(true)} />
       <main className="max-w-7xl mx-auto sm:px-6 lg:px-8 py-4">
         <StatCards stats={stats} />
 
@@ -157,8 +154,6 @@ export default function DashboardPage() {
           computeOccupancyPct={computeOccupancyPct}
         />
       </main>
-
-      <ChatModal isOpen={isChatbotOpen} onOpenChange={setIsChatbotOpen} />
 
       <UploadModal
         isOpen={isUploadModalOpen}
