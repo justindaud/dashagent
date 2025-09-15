@@ -1,10 +1,10 @@
 "use client";
-import { Upload, Bot, BarChart3 } from "lucide-react";
+import { Upload, Bot, BarChart3, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
   onUploadClick?: () => void;
-  page: "dashboard" | "chat";
+  page: "dashboard" | "users" | "chat";
 }
 
 export function Header({ onUploadClick, page }: HeaderProps) {
@@ -23,6 +23,12 @@ export function Header({ onUploadClick, page }: HeaderProps) {
                   <Upload className="w-5 h-5" />
                   Upload Data
                 </Button>
+                <a href="/users">
+                  <Button variant="outline" className="flex items-center gap-2 border-primary text-primary hover:text-primary">
+                    <Users className="w-5 h-5" />
+                    Manage Users
+                  </Button>
+                </a>
                 <a href="/chat">
                   <Button variant="outline" className="flex items-center gap-2 border-primary text-primary hover:text-primary">
                     <Bot className="w-5 h-5" />
@@ -30,6 +36,15 @@ export function Header({ onUploadClick, page }: HeaderProps) {
                   </Button>
                 </a>
               </>
+            )}
+
+            {page === "users" && (
+              <a href="/">
+                <Button variant="outline" className="flex items-center gap-2 border-primary text-primary hover:text-primary">
+                  <BarChart3 className="w-5 h-5" />
+                  Analytics Dashboard
+                </Button>
+              </a>
             )}
 
             {page === "chat" && (
