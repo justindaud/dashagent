@@ -5,7 +5,7 @@ from app.repositories import session_repository as srepo
 from app.utils.session_id import generate_session_id
 from app.model.session import AgentSession
 from typing import Optional
-from agent.agent import agent_runner
+from agentv2.main import DashboardAgent
 from app.model.user import User
 
 def create_session_controller(db: Session, *, user_id: str, title: Optional[str]) -> AgentSession:
@@ -31,7 +31,7 @@ def get_my_session_controller(db: Session, *, user_id: str, session_id: str) -> 
     return sess
 
 def start_agent_controller(
-    db: Session, *, background_tasks: BackgroundTasks, current_user: User, session_id: str, prompt: str) -> dict:
+    db: Session, *, background_tasks: BackgroundTasks, current_user: User, session_id: str, user_input: str) -> dict:
     user_id = str(current_user.id)
     user_role = current_user.role.value
 
@@ -39,5 +39,5 @@ def start_agent_controller(
     if not sess:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
 
-    background_tasks.add_task(agent_runner.run_background, session_id, user_id, prompt, user_role)
+    background_tasks.add_task(DashboardAgent.run_background, session_id, user_id, user_input, user_role)
     return {"message": "Agent started", "session_id": session_id, "user_id": user_id, "role": user_role}
