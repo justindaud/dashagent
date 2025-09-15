@@ -1,0 +1,8 @@
+
+    digraph G {
+        graph [splines=true];
+        node [fontname="Arial"];
+        edge [penwidth=1.5];
+    "__start__" [label="__start__", shape=ellipse, style=filled, fillcolor=lightblue, width=0.5, height=0.3];"__end__" [label="__end__", shape=ellipse, style=filled, fillcolor=lightblue, width=0.5, height=0.3];"Analyst Agent" [label="Analyst Agent", shape=box, style=filled, fillcolor=lightyellow, width=1.5, height=0.8];"query_database" [label="query_database", shape=ellipse, style=filled, fillcolor=lightgreen, width=0.5, height=0.3];"__start__" -> "Analyst Agent";
+        "Analyst Agent" -> "query_database" [style=dotted, penwidth=1.5];
+        "query_database" -> "Analyst Agent" [style=dotted, penwidth=1.5];"Analyst Agent" -> "__end__";}
