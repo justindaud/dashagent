@@ -22,12 +22,12 @@ def send_prompt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    logger.info("Starting processing prompt for: %s (user=%s, role=%s)", payload.prompt, current_user.username, current_user.role.value)
+    logger.info("Starting processing prompt for: %s (user=%s, role=%s)", payload.user_input, current_user.username, current_user.role.value)
     result = ctl.start_agent_controller(
         db,
         background_tasks=background_tasks,
         current_user=current_user,
         session_id=session_id,
-        prompt=payload.prompt,
+        user_input=payload.user_input,
     )
     return success(message=result["message"], data={"session_id": result["session_id"], "user_id": current_user.id, "role": result["role"]}, status_code=202)
