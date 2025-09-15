@@ -1,25 +1,35 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
+# app/settings.py
+from pydantic import BaseModel
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
-class Settings(BaseSettings):
+class Settings(BaseModel):
+    PORT: int = int(os.getenv("PORT"))
+
     # Database
-    database_url: str
-    
+    DB_HOST: str = os.getenv("DB_HOST")
+    DB_PORT: int = int(os.getenv("DB_PORT"))
+    DB_USER: str = os.getenv("DB_USER")
+    DB_PASSWORD: str = os.getenv("DB_PASSWORD")
+    DB_NAME: str = os.getenv("DB_NAME")
+
     # Security
-    secret_key: str
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
-    
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
+    JWT_EXPIRATION_HOURS: int = int(os.getenv("JWT_EXPIRATION_HOURS"))
+    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
+    BCRYPT_COST: int = int(os.getenv("BCRYPT_COST"))
+    PASSWORD_PEPPER: str = os.getenv("PASSWORD_PEPPER")
+    COOKIE_NAME: str = os.getenv("COOKIE_NAME")
+
     # OpenAI
-    openai_api_key: Optional[str] = None
-    
-    # Environment
-    environment: str = "development"
-    
-    class Config:
-        env_file = ".env"
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
+    EXPERIENCE_VS_ID: str = os.getenv("EXPERIENCE_VS_ID")
+    GOVERNANCE_VS_ID: str = os.getenv("GOVERNANCE_VS_ID")
 
+    @property
+    def database_url(self) -> str:
+        return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
-# Global settings instance
 settings = Settings()
