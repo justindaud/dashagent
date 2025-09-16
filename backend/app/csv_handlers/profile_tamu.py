@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import re # [Import] Regex
 import phonenumbers
 from phonenumbers import geocoder
 from sqlalchemy.orm import Session
@@ -95,18 +96,19 @@ class ProfileTamuHandler:
             num = phonenumbers.parse(phone, None)
             if phonenumbers.is_valid_number(num):
                 # Return with country code but without + symbol
-                return f"{num.country_code}{num.national_number}"
+                # return f"{num.country_code}{num.national_number}"
+                return str(phone)
             else:
-                return phone
+                return ''
         except:
-            return phone
+            return ''
     
     def clean_phone_number(self, phone: str):
         """Clean phone number using user's proven logic"""
         if pd.isna(phone) or phone == '':
             return ''
         
-        phone_str = str(phone)
+        phone_str = str(phone).strip()
         # Remove quotes and equals signs
         phone_str = phone_str.replace('"', '').replace('=', '').strip()
         
@@ -185,8 +187,9 @@ class ProfileTamuHandler:
             # Try different CSV parsing strategies with skiprows=6 for profile_tamu
             try:
                 # First attempt: standard parsing with skiprows=6
-                df = pd.read_csv(StringIO(content.decode('utf-8')), skiprows=6)
+                df = pd.read_csv(StringIO(content.decode('utf-8')), dtype=str, skiprows=6)
                 print("Standard parsing with skiprows=6 successful!")
+
             except Exception as parse_error:
                 print(f"Standard parsing with skiprows=6 failed: {parse_error}")
                 
@@ -194,6 +197,7 @@ class ProfileTamuHandler:
                     # Second attempt: with error handling and skiprows
                     df = pd.read_csv(
                         StringIO(content.decode('utf-8')),
+                        dtype=str,
                         skiprows=6,
                         on_bad_lines='skip',  # Skip bad lines
                         quoting=3,              # QUOTE_NONE - disable quotes
@@ -207,6 +211,7 @@ class ProfileTamuHandler:
                     # Third attempt: manual parsing with pandas and skiprows
                     df = pd.read_csv(
                         StringIO(content.decode('utf-8')),
+                        dtype=str,
                         skiprows=6,
                         engine='python',
                         sep=None,
@@ -248,11 +253,30 @@ class ProfileTamuHandler:
             # Clean data using user's proven logic
             print("=== CLEANING GUEST PROFILE DATA ===")
             
+            # [Add] Whole Dataframe Cleaning
+            df = (
+                df
+                .dropna(how='all')
+                .fillna('')
+                .map(lambda x: str(x).replace("\t", "").strip() if isinstance(x, str) else x)
+                .map(
+                    lambda x: x.strip('"').strip("'") if isinstance(x, str) else x
+                )
+            )
+
+
             # Clean names
             if 'Name' in df.columns:
                 df['Name'] = df['Name'].apply(self.clean_name)
                 df = df[df['Name'].notna() & (df['Name'] != '')]
                 print(f"Names cleaned: {len(df)} records")
+
+            # [Add] clear decimal from Guest Numbers
+            # Clean Guest No by removing .0 if present
+            if 'Guest No' in df.columns:
+                df['Guest No'] = df['Guest No'].apply(
+                lambda x: str(x).replace(".0", "") if pd.notna(x) else x
+            )
             
             # Clean phone numbers
             if 'Phone' in df.columns:
@@ -266,7 +290,6 @@ class ProfileTamuHandler:
             # Clean other fields
             if 'Email' in df.columns:
                 df['Email'] = df['Email'].str.strip().str.lower()
-                df['Email'] = df['Email'].replace(['', 'NULL', 'NaN', 'nan'], '')
             
             if 'Birth Date' in df.columns:
                 df['Birth Date'] = df['Birth Date'].apply(self.clean_birth_date)
@@ -274,40 +297,99 @@ class ProfileTamuHandler:
             if 'Occupation' in df.columns:
                 df['Occupation'] = df['Occupation'].apply(self.clean_occupation)
             
-            # Clean additional fields
+            # [Add] Clear and Normalize city null
             if 'City' in df.columns:
-                df['City'] = df['City'].fillna('').astype(str).str.strip()
+                df['City'] = (
+                    df['City']
+                    .astype(str)
+                    .str.strip()
+                    .apply(
+                        lambda x: "" 
+                        if (
+                            x.upper() in ["NAN", "NONE", "NULL", "NA", "N A", "N/A"]  # hanya NA
+                            or re.fullmatch(r"[\W_]+", x) is not None   # hanya simbol/non-alfanumerik
+                        ) else x
+                    )
+                )
             
             if 'Country' in df.columns:
-                df['Country'] = df['Country'].fillna('').astype(str).str.strip()
+                df['Country'] = df['Country'].astype(str).str.strip()
             
+            # [Add] Turns COMPL into COMP and normalize style with upper()
             if 'Segment' in df.columns:
-                df['Segment'] = df['Segment'].fillna('').astype(str).str.strip()
+                df['Segment'] = (
+                    df['Segment']
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                    .replace({
+                        "COMPL": "COMP",
+                    })
+                )
             
             if 'Type ID' in df.columns:
-                df['Type ID'] = df['Type ID'].fillna('').astype(str).str.strip()
+                df['Type ID'] = df['Type ID'].astype(str).str.strip()
             
             if 'ID No.' in df.columns:
-                df['ID No.'] = df['ID No.'].fillna('').astype(str).str.strip()
+                df['ID No.'] = df['ID No.'].astype(str).str.strip()
             
+            # [Add] Address Normalization and clearing
+            if "Address" in df.columns:
+                df["Address"] = (
+                    df["Address"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                    .apply(
+                        lambda x: "" 
+                        if (
+                            x in ["NAN", "NONE", "NULL", "NA", "N A"]  # hanya NA
+                            or re.fullmatch(r"[\W_]+", x) is not None   # hanya simbol/non-alfanumerik
+                        ) else x
+                    )
+                )
+
+            # [Add] Clear Telefax from symbols
+            if 'Telefax' in df.columns:
+                df['Telefax'] = (
+                    df['Telefax']
+                    .astype(str)
+                    .str.replace(r'\D', '', regex=True)
+                    .str.strip()
+                )
+
+            # [Add] Clear (M, F, U) to UNIDENTIFIED
             if 'Sex' in df.columns:
-                df['Sex'] = df['Sex'].fillna('').astype(str).str.strip()
+                df['Sex'] = (
+                    df['Sex']
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                    .replace(['M', 'F', 'U'], 'UNIDENTIFIED')
+                )
             
             if 'Zip' in df.columns:
-                df['Zip'] = df['Zip'].fillna('').astype(str).str.strip()
+                df['Zip'] = df['Zip'].astype(str).str.strip()
             
             if 'L-Region' in df.columns:
-                df['L-Region'] = df['L-Region'].fillna('').astype(str).str.strip()
+                df['L-Region'] = df['L-Region'].astype(str).str.strip()
             
             if 'Telefax' in df.columns:
-                df['Telefax'] = df['Telefax'].fillna('').astype(str).str.strip()
+                df['Telefax'] = df['Telefax'].astype(str).str.strip()
             
             if 'Comments' in df.columns:
-                df['Comments'] = df['Comments'].fillna('').astype(str).str.strip()
+                df['Comments'] = df['Comments'].astype(str).str.strip()
             
+            # [Add] Normalize all credit lim nul to 0
             if 'Credit Lim' in df.columns:
-                df['Credit Lim'] = df['Credit Lim'].fillna('0').astype(str).str.strip()
-            
+                df['Credit Lim'] = (
+                    df['Credit Lim']
+                    .fillna('0')
+                    .astype(str)
+                    .str.strip()
+                    .replace(r'^\s*$', '0', regex=True)  # if string is empty/only spaces → "0"
+                )
+
             # Process each row with Raw + Processed logic
             rows_processed = 0
             rows_updated = 0
