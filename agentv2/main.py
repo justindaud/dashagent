@@ -239,7 +239,7 @@ class DashboardAgent:
                     console.print("[bold cyan]Updating memory...[/bold cyan]")
                     if result.final_output:
                         ingest_insights(
-                            session_id=sql_session,
+                            session_id=session_id,
                             user_id=extracted_user_id,
                             insights=result.final_output.insights,
                             patterns=result.final_output.patterns,
