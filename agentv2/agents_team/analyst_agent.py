@@ -40,6 +40,6 @@ analyst_agent = Agent(
         FileSearchTool(vector_store_ids=[VS_ID], max_num_results=4),
         query_database
     ],
-    model="gpt-4o-mini",
+    model="gpt-5",
     model_settings=ModelSettings(tool_choice="auto")
 )
