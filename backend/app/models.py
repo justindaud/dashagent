@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.database import Base
+from app.db.database import Base
 
 
 # class User(Base):
@@ -22,7 +22,7 @@ class CSVUpload(Base):
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String(255), nullable=False)
     file_type = Column(String(50), nullable=False)  # profile_tamu, reservasi, etc
-    uploaded_by = Column(Integer, ForeignKey("users.id"))
+    uploaded_by = Column(Integer, ForeignKey("users.user_id"))
     status = Column(String(20), default="processing")  # processing, completed, failed
     rows_processed = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)

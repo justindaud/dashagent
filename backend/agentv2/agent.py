@@ -16,15 +16,15 @@ from rich.markdown import Markdown
 from agents import Agent, Runner, TResponseInputItem, ItemHelpers, trace
 from openai.types.responses import ResponseTextDeltaEvent
 
-from agents_team.orchestrator import orchestrator
-from agents_team.prompt_agent import prompt_agent
-from agents_team.experience_agent import experience_agent
+from agentv2.agents_team.orchestrator import orchestrator
+from agentv2.agents_team.prompt_agent import prompt_agent
+from agentv2.agents_team.experience_agent import experience_agent
 
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 from agents.extensions.memory.sqlalchemy_session import SQLAlchemySession
 
-from scripts.experience_func import fetch_experience, ingest_insights, ingest_insights_async
+from agentv2.scripts.experience_func import fetch_experience, ingest_insights, ingest_insights_async
 
 console = Console()
 
@@ -41,16 +41,6 @@ elif DATABASE_URL.startswith("sqlite://") and "+" not in DATABASE_URL.split(":",
     DATABASE_URL = DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://", 1)
 
 engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
-
-def generate_session_id(user_id: Optional[str] = None) -> str:
-    """Generate automatic session ID"""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    session_uuid = str(uuid.uuid4())[:8]
-    
-    if user_id:
-        return f"user_{user_id}_session_{timestamp}_{session_uuid}"
-    else:
-        return f"session_{timestamp}_{session_uuid}"
 
 def make_sa_session(session_id: str) -> SQLAlchemySession:
     # create_tables=True is convenient for dev; in production use migrations
@@ -193,110 +183,43 @@ class DashboardAgent:
 
     async def memory_updater(self):
         with trace("Updating memory", metadata={"session_id": self.session_id, "user_id": self.user_id}):
-            with console.status("[bold cyan]Updating memory...[/bold cyan]") as status:
+            try:
+                sql_session = SQLAlchemySession(session_id=self.session_id, engine=engine)
+                result = Runner.run_streamed(
+                    experience_agent,
+                    "Anda akan membaca keseluruhan pecakapan, ...",
+                    session=sql_session
+                )
+                await stream_once(result, self.session_id, self.user_id)
 
-                try:
-                    q = f"""
-                        SELECT 
-                            s.session_id,
-                            si.session_id as analyzed_session
-                        FROM agent_sessions s
-                        LEFT JOIN session_insights si ON s.session_id = si.session_id
-                        WHERE s.updated_at = (
-                            SELECT MAX(updated_at) FROM agent_sessions
-                        )
-                        AND si.session_id IS NULL
-                        """
-                    
-                    console.print("[bold cyan]Fetching experience...[/bold cyan]")
+                console.print("[bold cyan]Updating memory...[/bold cyan]")
 
-                    async with engine.connect() as conn:
-                        result = await conn.execute(text(q))
-                        row = result.fetchone()
-                    
-                    #experience = fetch_experience(limit=500)
+                if result.final_output:
+                    status_msg = await ingest_insights_async(
+                        session_id=self.session_id,
+                        user_id=self.user_id,
+                        insights=getattr(result.final_output, "insights", []) or [],
+                        patterns=getattr(result.final_output, "patterns", []) or [],
+                        preferences=getattr(result.final_output, "preferences", []) or [],
+                        async_engine=engine,
+                    )
+                    console.print(f"[green]{status_msg}[/green]")
+                else:
+                    console.print("[yellow]No insights generated from experience agent[/yellow]")
+                
+                console.print("[bold cyan]Memory updated successfully[/bold cyan]")
+            except Exception as e:
+                console.print(f"[red]Error updating memory:[/red] {e}")
 
-                    if not row or row[1] is not None:
-                        console.print("[yellow]No new sessions to analyze[/yellow]")
-                        return
+    async def run_background(session_id: str, user_id: str, user_input: str, user_role: Optional[str] = None) -> None:
+        console.print(f"[bold]accepted[/bold] session_id={session_id} user_id={user_id} role={user_role or '-'} prompt={user_input!r}")
 
-                    session_id = row[0]
+        sa_session = make_sa_session(session_id)
+        dashboard_agent = DashboardAgent(user_input=user_input, session_id=session_id, user_id=user_id, session=sa_session)
 
-                    sql_session = SQLAlchemySession(session_id=session_id, engine=engine)
-
-                    #session_id = experience["session_id"]
-                    extracted_user_id = session_id.split("_")[1] if session_id.startswith("user_") else None
-
-                    console.print("[bold cyan]Analyzing experience...[/bold cyan]")
-
-                    result = Runner.run_streamed(experience_agent,
-                                                "Anda akan membaca keseluruhan pecakapan, pahami konteks, buat insights sebagai list dari hal-hal yang perlu diingat, sebutkan table, fields, sql, cara membuat query, link, cara menentukan url, dsb",
-                                                session=sql_session)
-                    
-                    # Stream the result to completion
-                    await stream_once(result, self.session_id, self.user_id)
-
-                    console.print("[bold cyan]Updating memory...[/bold cyan]")
-                    if result.final_output:
-                        status = await ingest_insights_async(
-                            session_id=session_id,
-                            user_id=extracted_user_id,
-                            insights=result.final_output.insights,
-                            patterns=result.final_output.patterns,
-                            preferences=result.final_output.preferences,
-                            async_engine=engine
-                        )
-                        console.print(f"[green]{status}[/green]")
-                    else:
-                        console.print("[red]No insights generated from experience agent[/red]")
-
-                    console.print("[bold cyan]Memory updated successfully[/bold cyan]")
-                except Exception as e:
-                    console.print(f"[red]Error updating memory:[/red] {e}")
-
-# Main function
-async def main():
-    console.print("[bold cyan]DashAgent - Hotel Analytics AI[/bold cyan]")
-    console.print("Ketik 'exit' untuk keluar.")
-    
-    user_id = Prompt.ask("Enter user ID", default="demo_user")
-    
-    # Initialize session variables
-    session_id = Prompt.ask("Enter session ID", default=None)
-    if not session_id:
-        session_id = generate_session_id(user_id)
-    
-    session = make_sa_session(session_id)
-
-    while True:
-        user_input = Prompt.ask("\n[bold]You[/bold]").strip()
-        
-        if not user_input.strip():
-            console.print("[red]Anda tidak memberikan instruksi apapun[/red]");
-            continue
-
-        if user_input.lower() in {"exit", "quit", ":q"}:
-            console.print("Bye! 👋");
-            break
-        
         try:
-            dashboard_agent = DashboardAgent(user_input, session_id, user_id, session)
-
-            
             analyzer_task = asyncio.create_task(dashboard_agent.analyzer())
             memory_task = asyncio.create_task(dashboard_agent.memory_updater())
             await asyncio.gather(analyzer_task, memory_task)
-            
-            # prompt_response = await decompose_task
-
-            """
-            await dashboard_agent.analyzer()
-            await dashboard_agent.memory_updater()
-            """
-
         except Exception as e:
-            console.print(f"[red]Error getting response:[/red] {e}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+            console.print(f"[red]runner.error[/red] session_id={session_id} user_id={user_id} role={user_role or '-'} error={e}")

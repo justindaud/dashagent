@@ -1,11 +1,28 @@
+# Web
 fastapi
 uvicorn[standard]
-pandas
+phonenumbers
+
+# DB
 sqlalchemy
 psycopg2-binary
-python-multipart
-pydantic-settings
-python-jose[cryptography]
-passlib[bcrypt]
-phonenumbers
+
+# Auth & security
 PyJWT
+bcrypt
+passlib[bcrypt]
+python-multipart
+
+# Config
+pydantic
+pydantic-settings
+python-dotenv
+
+# Agent & utils
+openai
+openai-agents
+rich
+requests
+duckduckgo-search
+beautifulsoup4
+pandas
