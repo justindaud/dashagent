@@ -132,6 +132,20 @@ def ingest_insights(
     # Bulk insert
     try:
         with engine.connect() as conn:
+            # Create table if not exists
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS session_insights (
+                    id SERIAL PRIMARY KEY,
+                    session_id VARCHAR(255) NOT NULL,
+                    user_id VARCHAR(255),
+                    insight_type VARCHAR(50) NOT NULL,
+                    insight_content TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            conn.commit()
+            
+            # Insert insights
             for data in experience_data:
                 conn.execute(text("""
                     INSERT INTO session_insights 
