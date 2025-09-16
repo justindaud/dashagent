@@ -6,7 +6,7 @@ import os
 load_dotenv()
 
 EXPERIENCE_VS_ID = os.getenv("EXPERIENCE_VS_ID")
-VS_ID = os.getenv("VS_ID")
+VS_ID = os.getenv("GOVERNANCE_VS_ID")
 
 PROMPT_AGENT_PROMPT ="""
 Anda adalah agent prompt decomposer yang akan menerima user prompt dan menjelaskan prompt pada tim agent.

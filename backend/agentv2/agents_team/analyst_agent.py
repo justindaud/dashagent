@@ -5,7 +5,7 @@ import os
 
 load_dotenv()
 
-VS_ID = os.getenv("VS_ID")
+VS_ID = os.getenv("GOVERNANCE_VS_ID")
 
 ANALYST_PROMPT = """
 Anda adalah data analyst yang ahli dalam menganalisis data hotel menggunakan PostgreSQL.

@@ -5,12 +5,12 @@ from typing import Optional, List
 from app.model.user import User
 
 def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
-    return db.query(User).filter(User.id == user_id).first()
+    return db.query(User).filter(User.user_id == user_id).first()
 
 def username_exists_ci(db: Session, username: str, exclude_user_id: Optional[str] = None) -> bool:
     q = db.query(User).filter(func.upper(User.username) == func.upper(func.trim(username)))
     if exclude_user_id:
-        q = q.filter(User.id != exclude_user_id)
+        q = q.filter(User.user_id != exclude_user_id)
     return db.query(q.exists()).scalar()
 
 def list_users(db: Session) -> List[User]:

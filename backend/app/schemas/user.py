@@ -20,7 +20,7 @@ class UserUpdate(TrimmedModel):
     is_active: Optional[bool] = None
 
 class UserOut(TrimmedModel):
-    id: str
+    user_id: str
     username: str
     full_name: Optional[str] = None
     role: UserRole

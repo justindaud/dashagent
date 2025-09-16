@@ -17,7 +17,7 @@ def login_controller(db: Session, username: str, password: str) -> dict:
         )
 
     token = create_access_token(
-        subject=str(user.id),
+        subject=str(user.user_id),
         role=user.role.value,
         token_version=user.token_version,
     )
@@ -25,7 +25,7 @@ def login_controller(db: Session, username: str, password: str) -> dict:
     return {
         "message": "Logged in Successfully",
         "access_token": token,
-        "user_id": str(user.id),
+        "user_id": str(user.user_id),
     }
 
 def logout_controller(db: Session, request: Request, current_user: User) -> dict:
@@ -45,7 +45,7 @@ def logout_controller(db: Session, request: Request, current_user: User) -> dict
         )
 
     sub = payload.get("sub")
-    if sub != str(current_user.id):
+    if sub != str(current_user.user_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Token does not belong to current user"
@@ -54,6 +54,6 @@ def logout_controller(db: Session, request: Request, current_user: User) -> dict
     auth_repo.bump_token_version(db, current_user)
     return {
         "message": "Logged out Successfully",
-        "user_id": str(current_user.id),
+        "user_id": str(current_user.user_id),
         "clear_cookie": True
     }

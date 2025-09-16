@@ -1,11 +1,11 @@
-# app/controllers/session_controller.py
+# backend/app/controllers/session_controller.py
 from fastapi import HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.repositories import session_repository as srepo
 from app.utils.session_id import generate_session_id
 from app.model.session import AgentSession
 from typing import Optional
-from agentv2.main import DashboardAgent
+from agentv2.agent import DashboardAgent
 from app.model.user import User
 
 def create_session_controller(db: Session, *, user_id: str, title: Optional[str]) -> AgentSession:
@@ -32,7 +32,7 @@ def get_my_session_controller(db: Session, *, user_id: str, session_id: str) -> 
 
 def start_agent_controller(
     db: Session, *, background_tasks: BackgroundTasks, current_user: User, session_id: str, user_input: str) -> dict:
-    user_id = str(current_user.id)
+    user_id = str(current_user.user_id)
     user_role = current_user.role.value
 
     sess = srepo.get_by_id_and_user(db, session_id, user_id)

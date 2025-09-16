@@ -1,3 +1,4 @@
+# backend/app/controllers/profile_controller.py
 import re
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -19,36 +20,24 @@ def _require_at_least_one(username, password, full_name):
 
 def _validate_username(username: str) -> None:
     if not _NO_SPACE_RE.match(username):
-        raise HTTPException(
-            status_code=400,
-            detail="Username must not contain spaces"
-        )
+        raise HTTPException(status_code=400, detail="Username must not contain spaces")
     if username != username.upper():
-        raise HTTPException(
-            status_code=400,
-            detail="Username must be uppercase"
-        )
+        raise HTTPException(status_code=400, detail="Username must be uppercase")
 
 def _validate_password(password: str, confirm_password: str) -> None:
     if not _NO_SPACE_RE.match(password):
-        raise HTTPException(
-            status_code=400,
-            detail="Password must not contain spaces"
-        )
+        raise HTTPException(status_code=400, detail="Password must not contain spaces")
     if not _PASSWORD_RE.match(password):
         raise HTTPException(
             status_code=400,
             detail="Password must be at least 8 characters with 1 uppercase, 1 special character, and 1 number",
         )
     if password != confirm_password:
-        raise HTTPException(
-            status_code=400,
-            detail="Password and confirm password do not match",
-        )
+        raise HTTPException(status_code=400, detail="Password and confirm password do not match")
 
 def profile_controller(current_user: User) -> dict:
     return {
-        "id": str(current_user.id),
+        "user_id": str(current_user.user_id),
         "username": current_user.username,
         "full_name": current_user.full_name,
         "role": current_user.role.value,
@@ -72,7 +61,7 @@ def update_profile_controller(
         _validate_username(username)
 
         if username.upper() != (current_user.username or "").upper():
-            if repo.username_exists_ci(db, username, exclude_user_id=current_user.id):
+            if repo.username_exists_ci(db, username, exclude_user_id=current_user.user_id):
                 raise HTTPException(status_code=400, detail="Username already in use")
             current_user.username = username
             bumped = True
@@ -99,5 +88,5 @@ def update_profile_controller(
 
     return {
         "message": ("Profile updated successfully — please login again" if bumped else "Profile updated successfully"),
-        "id": str(current_user.id),
+        "user_id": str(current_user.user_id),
     }

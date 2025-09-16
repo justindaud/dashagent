@@ -18,7 +18,7 @@ def profile(current_user: User = Depends(get_current_user)):
     return success(message="Profile Fetched Successfully", data=prof, status_code=200)
 
 @router.put("/")
-def update_profile( payload: ProfileUpdate,  db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def update_profile(payload: ProfileUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     result = profile_ctl.update_profile_controller(
         db,
         current_user,
@@ -29,9 +29,9 @@ def update_profile( payload: ProfileUpdate,  db: Session = Depends(get_db), curr
     )
     resp = success(
         message=result["message"],
-        data={"id": result["id"]},
-        status_code=200
+        data={"user_id": result["user_id"]},
+        status_code=200,
     )
     if result.get("bumped"):
-        clear_auth_cookie(resp) 
+        clear_auth_cookie(resp)
     return resp

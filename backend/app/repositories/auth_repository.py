@@ -1,4 +1,4 @@
-# app/repositories/auth_repository.py
+# backend/app/repositories/auth_repository.py
 from sqlalchemy.orm import Session
 from app.model.user import User
 
