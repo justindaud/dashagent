@@ -96,8 +96,7 @@ class ProfileTamuHandler:
             num = phonenumbers.parse(phone, None)
             if phonenumbers.is_valid_number(num):
                 # Return with country code but without + symbol
-                # return f"{num.country_code}{num.national_number}"
-                return str(phone)
+                return f"{num.country_code}{num.national_number}"
             else:
                 return ''
         except:
