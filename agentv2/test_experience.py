@@ -58,10 +58,15 @@ async def main():
     engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
     
     q = f"""
-        SELECT session_id
-        FROM agent_messages
-        ORDER BY created_at DESC
-        LIMIT 1
+        SELECT 
+            s.session_id,
+            si.session_id as analyzed_session
+        FROM agent_sessions s
+        LEFT JOIN session_insights si ON s.session_id = si.session_id
+        WHERE s.updated_at = (
+            SELECT MAX(updated_at) FROM agent_sessions
+        )
+        AND si.session_id IS NULL
         """
     
     async with engine.connect() as conn:
@@ -72,6 +77,7 @@ async def main():
     agent = Agent(
         name="Experience Agent",
         instructions=EXPERIENCE_PROMPT,
+        model="gpt-5",
         output_type=AgentOutputSchema(ExperienceDigest)
     )
 

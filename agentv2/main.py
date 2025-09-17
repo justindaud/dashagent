@@ -152,7 +152,7 @@ class DashboardAgent:
     async def decompose_prompt(self):
         with console.status("[bold cyan]Analyzing prompt...[/bold cyan]") as status:
         
-            result = Runner.run_streamed(prompt_agent, input=self.user_input)
+            result = Runner.run_streamed(prompt_agent, input=self.user_input, session=self.session)
             await stream_once(result, self.session_id, self.user_id)
 
             console.print(f"[debug] Result: {result}")

@@ -59,7 +59,7 @@ async def main():
 
     # make session
     session = SQLAlchemySession(
-        "testprompt4",
+        "testprompt5",
         engine=engine,
         create_tables=True,
     )
@@ -73,7 +73,7 @@ async def main():
         ],
         model="gpt-5",
         output_type=PromptResponse,
-        model_settings=ModelSettings(tool_choice="auto")
+        #model_settings=ModelSettings(tool_choice="auto")
         )
     
     with trace("testing agent"):
