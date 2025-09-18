@@ -1,4 +1,4 @@
-# controllers/user_controller.py
+# backend/app/controllers/user_controller.py
 import re
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -12,40 +12,26 @@ _PASSWORD_RE = re.compile(r"^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])\S{8,}$")
 
 def _validate_username(username: str) -> None:
     if not _NO_SPACE_RE.match(username):
-        raise HTTPException(
-            status_code=400,
-            detail="Username must not contain spaces"
-        )
+        raise HTTPException(status_code=400, detail="Username must not contain spaces")
     if username != username.upper():
-        raise HTTPException(
-            status_code=400,
-            detail="Username must be uppercase"
-        )
+        raise HTTPException(status_code=400, detail="Username must be uppercase")
 
 def _validate_password(password: str, confirm_password: str) -> None:
     if not _NO_SPACE_RE.match(password):
-        raise HTTPException(
-            status_code=400,
-            detail="Password must not contain spaces"
-        )
+        raise HTTPException(status_code=400, detail="Password must not contain spaces")
     if not _PASSWORD_RE.match(password):
         raise HTTPException(
             status_code=400,
             detail="Password must be at least 8 characters with 1 uppercase, 1 special character, and 1 number",
         )
     if password != confirm_password:
-        raise HTTPException(
-            status_code=400,
-            detail="Password and confirm password do not match",
-        )
+        raise HTTPException(status_code=400, detail="Password and confirm password do not match")
 
 def _parse_role(role_str: str) -> UserRole:
     try:
         return UserRole(role_str)
     except Exception:
-        raise HTTPException(
-            status_code=400, detail="Failed to validate role"
-        )
+        raise HTTPException(status_code=400, detail="Failed to validate role")
 
 def register_user_controller(db: Session, username: str, password: str, confirm_password: str, full_name: str, role_str: str):
     _validate_username(username)
@@ -103,7 +89,7 @@ def update_user_controller(
         username = username.strip()
         _validate_username(username)
         if username.upper() != (user.username or "").upper():
-            if repo.username_exists_ci(db, username, exclude_user_id=user.id):
+            if repo.username_exists_ci(db, username, exclude_user_id=user.user_id):
                 raise HTTPException(status_code=400, detail="Username already in use")
             user.username = username
             bumped = True

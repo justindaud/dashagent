@@ -27,7 +27,7 @@ ORCHESTRATOR_PROMPT = """
 
 orchestrator = Agent(
     name="Orchestrator",
-    model="gpt-4o-mini",
+    model="gpt-5",
     instructions=ORCHESTRATOR_PROMPT,
     tools=[
 

@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 from agents.extensions.memory.sqlalchemy_session import SQLAlchemySession
 
-from scripts.experience_func import fetch_experience, ingest_insights
+from scripts.experience_func import fetch_experience, ingest_insights, ingest_insights_async
 
 console = Console()
 
@@ -152,7 +152,7 @@ class DashboardAgent:
     async def decompose_prompt(self):
         with console.status("[bold cyan]Analyzing prompt...[/bold cyan]") as status:
         
-            result = Runner.run_streamed(prompt_agent, input=self.user_input)
+            result = Runner.run_streamed(prompt_agent, input=self.user_input, session=self.session)
             await stream_once(result, self.session_id, self.user_id)
 
             console.print(f"[debug] Result: {result}")
@@ -238,13 +238,15 @@ class DashboardAgent:
 
                     console.print("[bold cyan]Updating memory...[/bold cyan]")
                     if result.final_output:
-                        ingest_insights(
+                        status = await ingest_insights_async(
                             session_id=session_id,
                             user_id=extracted_user_id,
                             insights=result.final_output.insights,
                             patterns=result.final_output.patterns,
-                            preferences=result.final_output.preferences
+                            preferences=result.final_output.preferences,
+                            async_engine=engine
                         )
+                        console.print(f"[green]{status}[/green]")
                     else:
                         console.print("[red]No insights generated from experience agent[/red]")
 

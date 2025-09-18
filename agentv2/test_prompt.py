@@ -23,14 +23,31 @@ elif DATABASE_URL.startswith("sqlite://") and "+" not in DATABASE_URL.split(":",
     DATABASE_URL = DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://", 1)
 
 PROMPT_AGENT_PROMPT = """
-    Anda adalah agent prompt decomposer yang akan menerima user prompt.
-    Anda akan menghasilkan beberapa prompt untuk diterima oleh orchestrator.
+    Anda adalah agent prompt decomposer yang akan menerima user prompt dan menjelaskan prompt pada tim agent.
+    Anda akan menghasilkan satu prompt untuk diterima oleh orchestrator.
+    Jika user prompt tidak kompleks anda tidak perlu overcomplicate.
 
-    Setiap prompt/query yang anda hasilkan perlu mengikuti spesifikasi:
+    Anda perlu memahami anggota dan kapabilitas tim agent yang sebagai berikut:
+
+    ## PERAN AGENTS:
+    1. **Orchestrator**: Agent untuk melakukan orkestrasi kerja dari Analyst Agent dan Search Agent menyesuaikan kebutuhan tugas.
+    1. **Analyst Agent**: Agent untuk menganalisis data dengan mengakses database (PostgreSQL)
+    2. **Search Agent**: Agent untuk melakukan pencarian informasi dari internet
+
+    ## TOOLS AGENTS:
+    1. **Orchestrator**: Agent dilengkapi dengan Analyst Agent dan Search Agent as tool.
+    1. **Analyst Agent**: Agent dilengkapi tool FileSearchTool untuk melihat data dictionary & manifest, query_database untuk generate dan execute query, CodeInterpreterTool analisis kompleks lanjutan dari data yang telah diambil dari database.
+    2. **Search Agent**: Agent ini dilengkapi WebSearchTool dan url_scrape untuk melakukan pencarian informasi di web dan menganalisis konten yang ditemukan.
+
+    Jika prompt user kompleks, maka buat prompt/query yang mengikuti spesifikasi:
     1. Memuat user prompt asli 
     2. Memuat eksplanasi intent user dari prompt asli
     3. Memuat detail spesifik terkait step-by-step, agent & tools yang perlu digunakan, contoh sql query, contoh web untuk search, dll.
     4. Memuat thoughts kenapa anda menyarankan cara response tersebut
+    """
+HANDOFF_DESCRIPTION = """
+    Agent ini memiliki peranan sebagai prompt user decomposer untuk menghasilkan prompt-prompt
+    baru untuk menjawab user dengan lebih holistik
     """
 
 class PromptResponse(BaseModel):
@@ -42,7 +59,7 @@ async def main():
 
     # make session
     session = SQLAlchemySession(
-        "test",
+        "testprompt5",
         engine=engine,
         create_tables=True,
     )
@@ -56,39 +73,16 @@ async def main():
         ],
         model="gpt-5",
         output_type=PromptResponse,
-        model_settings=ModelSettings(tool_choice="required")
+        #model_settings=ModelSettings(tool_choice="auto")
         )
     
     with trace("testing agent"):
-        result = Runner.run_streamed(
+        result = await Runner.run(
             agent,
-            "berikan saya data tamu yang paling sering menginap",
+            "bisa jelaskan apakah yang bisa dilakukan untuk meningkatkan performa hotel saya?",
             session=session,
             )
-        #print(result.final_output)
-
-        print("=== Run starting ===")
-
-        async for event in result.stream_events():
-            # We'll ignore the raw responses event deltas
-            if event.type == "raw_response_event":
-                continue
-            # When the agent updates, print that
-            elif event.type == "agent_updated_stream_event":
-                print(f"Agent updated: {event.new_agent.name}")
-                continue
-            # When items are generated, print them
-            elif event.type == "run_item_stream_event":
-                if event.item.type == "tool_call_item":
-                    print("-- Tool was called")
-                elif event.item.type == "tool_call_output_item":
-                    print(f"-- Tool output: {event.item.output}")
-                elif event.item.type == "message_output_item":
-                    print(f"-- Message output:\n {ItemHelpers.text_message_output(event.item)}")
-                else:
-                    pass  # Ignore other event types
-
-        print("=== Run complete ===")
+        print(result.final_output)
 
     await engine.dispose()
 
