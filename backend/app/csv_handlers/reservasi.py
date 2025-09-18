@@ -5,9 +5,64 @@ from fastapi import UploadFile, HTTPException
 from app.models import CSVUpload, Reservasi, ReservasiProcessed
 from io import StringIO
 
+import phonenumbers
+import re
 
 class ReservasiHandler:
     """Handler for reservation CSV files"""
+
+    def strip_country_code(self, phone: str):
+        if phone.startswith("0") and phone != '0':
+            # If starts with 0, assume Indonesia country code 62
+            return f"+62{phone[1:]}"
+        try:
+            num = phonenumbers.parse(phone, None)
+            if phonenumbers.is_valid_number(num):
+                # Return with country code but without + symbol
+                # return f"{num.country_code}{num.national_number}"
+                return str(phone)
+            else:
+                return ''
+        except:
+            return ''
+    
+    def clean_phone_number(self, phone: str):
+        """Clean phone number using user's proven logic"""
+        if pd.isna(phone) or phone == '':
+            return ''
+        
+        phone_str = str(phone).strip()
+        # Remove quotes and equals signs
+        phone_str = phone_str.replace('"', '').replace('=', '').strip()
+        
+        # Remove non-digits
+        phone_str = ''.join(filter(str.isdigit, phone_str))
+        
+        # Apply country code stripping
+        if phone_str:
+            phone_str = self.strip_country_code(phone_str)
+        
+        return phone_str
+    
+    def clean_birth_date(self, birth_date):
+        """Clean birth date with validation"""
+        if pd.isna(birth_date) or birth_date == '':
+            return ''
+        
+        try:
+            # Parse date
+            parsed_date = pd.to_datetime(birth_date, errors='coerce')
+            if pd.notna(parsed_date):
+                # Filter out unreasonable dates
+                current_year = pd.Timestamp.now().year
+                if parsed_date.year > current_year or parsed_date.year < 1900:
+                    return ''
+                
+                return parsed_date.strftime('%Y-%m-%d')
+            else:
+                return ''
+        except:
+            return ''
     
     async def process_csv(self, file: UploadFile, db: Session) -> dict:
         """
@@ -64,6 +119,14 @@ class ReservasiHandler:
             
             # Filter out summary section
             print("=== FILTERING OUT SUMMARY SECTION ===")
+
+            # Filter columns header
+            df.columns = (
+                df.columns
+                .str.strip()                            # trim depan & belakang
+                .str.replace(r"\s+", " ", regex=True)   # ganti banyak spasi → satu spasi
+            )
+
             print(f"Before filtering summary: {len(df)} records")
             
             # Filter out rows that contain summary data
@@ -97,11 +160,22 @@ class ReservasiHandler:
             
             # Clean and process data based on user's notes
             print("=== CLEANING RESERVATION DATA ===")
+
+            # [Add] Whole Dataframe Cleaning
+            df = (
+                df
+                .dropna(how='all')
+                .fillna('')
+                .map(lambda x: str(x).replace("\t", "").strip() if isinstance(x, str) else x)
+                .map(
+                    lambda x: x.strip('"').strip("'") if isinstance(x, str) else x
+                )
+            )
             
             # Clean guest names (combine First Name + Last Name) - approach user yang terbukti
             if 'First Name' in df.columns and 'Last Name' in df.columns:
-                df['First Name'] = df['First Name'].replace(['', 'NULL', 'NaN', 'nan', None], pd.NA)
-                df['Last Name'] = df['Last Name'].replace(['', 'NULL', 'NaN', 'nan', None], pd.NA)
+                df['First Name'] = df['First Name'].replace(['', 'NULL', 'NaN', 'nan', None], '')
+                df['Last Name'] = df['Last Name'].replace(['', 'NULL', 'NaN', 'nan', None], '')
                 
                 df['First Name'] = df['First Name'].fillna('')
                 df['Last Name'] = df['Last Name'].fillna('')
@@ -110,6 +184,10 @@ class ReservasiHandler:
                 df = df[df['Guest Name'] != '']
                 print(f"Guest names cleaned and combined: {len(df)} records")
             
+            # [Add] Normalize Birth Date Format
+            if 'Birth Date' in df.columns:
+                df['Birth Date'] = df['Birth Date'].apply(self.clean_birth_date)
+
             # Clean room details
             if 'Room Number' in df.columns:
                 df['Room Number'] = df['Room Number'].str.strip()
@@ -132,6 +210,10 @@ class ReservasiHandler:
                 if col in df.columns:
                     df[col] = pd.to_datetime(df[col], format='%H:%M', errors='coerce').dt.strftime('%H:%M')
             
+            # Clean Mobile Phone
+            if 'Mobile Phone' in df.columns:
+                df['Mobile Phone'] = df['Mobile Phone'].apply(self.clean_phone_number)
+
             # Clean email
             if 'Email' in df.columns:
                 df['Email'] = df['Email'].str.strip().str.lower()
@@ -144,6 +226,22 @@ class ReservasiHandler:
                 if col in df.columns:
                     # Remove commas (thousand separators), keep dots (decimal separators)
                     df[col] = df[col].astype(str).str.replace(',', '').apply(pd.to_numeric, errors='coerce').fillna(0)
+
+            # [Trial] clear .0
+            if 'Res No' in df.columns:
+                df['Res No'] = df['Res No'].apply(
+                    lambda x: str(x).replace(".0", "") if pd.notna(x) else x
+                )
+
+            if 'Guest No' in df.columns:
+                df['Guest No'] = df['Guest No'].apply(
+                    lambda x: str(x).replace(".0", "") if pd.notna(x) else x
+                )
+
+            if 'Bill Number' in df.columns:
+                df['Bill Number'] = df['Bill Number'].apply(
+                    lambda x: str(x).replace(".0", "") if pd.notna(x) else x
+                )
             
             # Handle other numeric columns normally
             other_numeric_columns = ['Age', 'Adult', 'Child', 'Night']
@@ -155,8 +253,19 @@ class ReservasiHandler:
             if 'Segment' in df.columns:
                 df['Segment'] = df['Segment'].str.strip().str.upper()
             
+            # [Add] Normalize NA in remarks
             if 'remarks' in df.columns:
-                df['remarks'] = df['remarks'].str.strip()
+                df['remarks'] = (
+                    df['remarks']
+                    .str.strip()
+                    .apply(
+                        lambda x: "" 
+                        if (
+                            x.upper() in ["NAN", "NONE", "NULL", "NA", "N A", "N/A"]  # hanya NA
+                            or re.fullmatch(r"[\W_]+", x) is not None   # hanya simbol/non-alfanumerik
+                        ) else x
+                    )
+                )
             
             # Group reservation with multiple rows (approach user yang terbukti)
             if 'Guest Name' in df.columns and 'Arrival' in df.columns and 'Depart' in df.columns and 'Room Number' in df.columns:
@@ -191,7 +300,7 @@ class ReservasiHandler:
                     'Created': 'first',
                     'By': 'first',
                     'remarks': 'first',
-                    'Mobile  Phone': 'first',  # Note: CSV has double space
+                    'Mobile Phone': 'first',  # Note: CSV has double space
                     'Email': 'first',
                 })
                 print(f"After groupby: {len(df)} records")
@@ -210,8 +319,8 @@ class ReservasiHandler:
                     
                     # Get dates - parse as DateTime for Processed table consistency
                     in_house_date = str(row.get('In House Date', ''))
-                    arrival_date = pd.to_datetime(row.get('Arrival', ''))
-                    depart_date = pd.to_datetime(row.get('Depart', ''))
+                    arrival_date = str(row.get('Arrival', ''))
+                    depart_date = str(row.get('Depart', ''))
                     room_number = str(row['Room Number'])
                     
                     # Generate unique guest_id since source system doesn't provide valid Guest No
@@ -251,7 +360,7 @@ class ReservasiHandler:
                         member_no=str(row.get('Member No', '')),
                         member_type=str(row.get('Member Type', '')),
                         email=str(row.get('Email', '')),
-                        mobile_phone=str(row.get('Mobile  Phone', '')),  # Note: CSV has double space
+                        mobile_phone=str(row.get('Mobile Phone', '')),  # Note: CSV has double space
                         vip_status=str(row.get('VIP', '')),
                         room_rate=room_rate,
                         lodging=float(row.get('Lodging', 0)) if pd.notna(row.get('Lodging')) else 0,
@@ -263,7 +372,7 @@ class ReservasiHandler:
                         bill_number=str(row.get('Bill Number', '')),
                         pay_article=str(row.get('Pay Article', '')),
                         rate_code=str(row.get('Rate Code', '')),
-                        res_no=str(row.get('Res No', '')),
+                        res_no=str(row.get('Res No', '')), # Double?
                         adult_count=int(row.get('Adult', 0)) if pd.notna(row.get('Adult')) else 0,
                         child_count=int(row.get('Child', 0)) if pd.notna(row.get('Child')) else 0,
                         compliment=str(row.get('Compliment', '')),
@@ -309,7 +418,7 @@ class ReservasiHandler:
                         existing_processed.member_no = str(row.get('Member No', ''))
                         existing_processed.member_type = str(row.get('Member Type', ''))
                         existing_processed.email = str(row.get('Email', ''))
-                        existing_processed.mobile_phone = str(row.get('Mobile  Phone', ''))
+                        existing_processed.mobile_phone = str(row.get('Mobile Phone', ''))
                         existing_processed.vip_status = str(row.get('VIP', ''))
                         existing_processed.room_rate = room_rate
                         existing_processed.lodging = float(row.get('Lodging', 0)) if pd.notna(row.get('Lodging')) else 0
@@ -360,7 +469,7 @@ class ReservasiHandler:
                             member_no=str(row.get('Member No', '')),
                             member_type=str(row.get('Member Type', '')),
                             email=str(row.get('Email', '')),
-                            mobile_phone=str(row.get('Mobile  Phone', '')),
+                            mobile_phone=str(row.get('Mobile Phone', '')),
                             vip_status=str(row.get('VIP', '')),
                             room_rate=room_rate,
                             lodging=float(row.get('Lodging', 0)) if pd.notna(row.get('Lodging')) else 0,

@@ -23,17 +23,17 @@ class ChatWhatsappHandler:
     
     def strip_country_code(self, phone: str):
         """Strip country code or 0 from phone number using user's proven logic"""
-        if phone.startswith("0"):
+        if phone.startswith("0") and phone != '0':
             return phone[1:]
         try:
             num = phonenumbers.parse(phone, None)
             if phonenumbers.is_valid_number(num):
-                no_code_number = num.national_number
-                return str(no_code_number)
+                # return f"{num.country_code}{num.national_number}"
+                return str(phone)
             else:
-                return phone
+                return ''
         except:
-            return phone
+            return ''
     
     async def process_csv(self, file: UploadFile, db: Session) -> dict:
         """
@@ -91,8 +91,9 @@ class ChatWhatsappHandler:
             
             # Clean phone numbers using user's proven logic
             if 'Chats' in df.columns:
-                df['Chats'] = df['Chats'].astype(str).str.replace(r'\D', '', regex=True)
+                # [Remove] make sure number can be processed
                 df['Chats'] = df['Chats'].apply(self.strip_country_code)
+                df = df.dropna(subset=['Chats'])
                 df = df[df['Chats'] != '']
                 print(f"Phone numbers cleaned: {len(df)} records")
             

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case, text
+from sqlalchemy import func, case, text, cast, Date
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
@@ -41,8 +41,8 @@ def get_aggregate(
 
         # Base overlap filter: arrival < end AND depart > start
         query = db.query(ReservasiProcessed).filter(
-            ReservasiProcessed.arrival_date < end_dt,
-            ReservasiProcessed.depart_date > start_dt,
+            cast(ReservasiProcessed.arrival_date, Date) < end_dt,
+            cast(ReservasiProcessed.depart_date, Date) > start_dt,
         )
 
         # Apply filters
@@ -68,7 +68,7 @@ def get_aggregate(
         overlap_nights_expr = func.greatest(
             0,
             func.least(
-                func.extract('day', func.least(ReservasiProcessed.depart_date, end_dt) - func.greatest(ReservasiProcessed.arrival_date, start_dt)),
+                func.extract('day', func.least(cast(ReservasiProcessed.depart_date, Date), end_dt) - func.greatest(cast(ReservasiProcessed.arrival_date, Date), start_dt)),
                 ReservasiProcessed.nights
             )
         )
@@ -180,8 +180,8 @@ def get_dimensions(
             if end_dt <= start_dt:
                 raise HTTPException(status_code=400, detail="end must be after start")
             query = query.filter(
-                ReservasiProcessed.arrival_date < end_dt,
-                ReservasiProcessed.depart_date > start_dt,
+                cast(ReservasiProcessed.arrival_date, Date) < end_dt,
+                cast(ReservasiProcessed.depart_date, Date) > start_dt,
             )
 
         # Distinct values per dimension
