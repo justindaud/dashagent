@@ -23,7 +23,7 @@ class ChatWhatsappHandler:
     
     def strip_country_code(self, phone: str):
         """Strip country code or 0 from phone number using user's proven logic"""
-        if phone.startswith("0"):
+        if phone.startswith("0") and phone != '0':
             return phone[1:]
         try:
             num = phonenumbers.parse(phone, None)

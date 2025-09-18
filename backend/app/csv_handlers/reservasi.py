@@ -12,7 +12,7 @@ class ReservasiHandler:
     """Handler for reservation CSV files"""
 
     def strip_country_code(self, phone: str):
-        if phone.startswith("0"):
+        if phone.startswith("0") and phone != '0':
             # If starts with 0, assume Indonesia country code 62
             return f"+62{phone[1:]}"
         try:
@@ -119,6 +119,14 @@ class ReservasiHandler:
             
             # Filter out summary section
             print("=== FILTERING OUT SUMMARY SECTION ===")
+
+            # Filter columns header
+            df.columns = (
+                df.columns
+                .str.strip()                            # trim depan & belakang
+                .str.replace(r"\s+", " ", regex=True)   # ganti banyak spasi → satu spasi
+            )
+
             print(f"Before filtering summary: {len(df)} records")
             
             # Filter out rows that contain summary data
@@ -218,6 +226,22 @@ class ReservasiHandler:
                 if col in df.columns:
                     # Remove commas (thousand separators), keep dots (decimal separators)
                     df[col] = df[col].astype(str).str.replace(',', '').apply(pd.to_numeric, errors='coerce').fillna(0)
+
+            # [Trial] clear .0
+            if 'Res No' in df.columns:
+                df['Res No'] = df['Res No'].apply(
+                    lambda x: str(x).replace(".0", "") if pd.notna(x) else x
+                )
+
+            if 'Guest No' in df.columns:
+                df['Guest No'] = df['Guest No'].apply(
+                    lambda x: str(x).replace(".0", "") if pd.notna(x) else x
+                )
+
+            if 'Bill Number' in df.columns:
+                df['Bill Number'] = df['Bill Number'].apply(
+                    lambda x: str(x).replace(".0", "") if pd.notna(x) else x
+                )
             
             # Handle other numeric columns normally
             other_numeric_columns = ['Age', 'Adult', 'Child', 'Night']
@@ -276,7 +300,7 @@ class ReservasiHandler:
                     'Created': 'first',
                     'By': 'first',
                     'remarks': 'first',
-                    'Mobile  Phone': 'first',  # Note: CSV has double space
+                    'Mobile Phone': 'first',  # Note: CSV has double space
                     'Email': 'first',
                 })
                 print(f"After groupby: {len(df)} records")
@@ -295,8 +319,8 @@ class ReservasiHandler:
                     
                     # Get dates - parse as DateTime for Processed table consistency
                     in_house_date = str(row.get('In House Date', ''))
-                    arrival_date = pd.to_datetime(row.get('Arrival', ''))
-                    depart_date = pd.to_datetime(row.get('Depart', ''))
+                    arrival_date = str(row.get('Arrival', ''))
+                    depart_date = str(row.get('Depart', ''))
                     room_number = str(row['Room Number'])
                     
                     # Generate unique guest_id since source system doesn't provide valid Guest No
@@ -336,7 +360,7 @@ class ReservasiHandler:
                         member_no=str(row.get('Member No', '')),
                         member_type=str(row.get('Member Type', '')),
                         email=str(row.get('Email', '')),
-                        mobile_phone=str(row.get('Mobile  Phone', '')),  # Note: CSV has double space
+                        mobile_phone=str(row.get('Mobile Phone', '')),  # Note: CSV has double space
                         vip_status=str(row.get('VIP', '')),
                         room_rate=room_rate,
                         lodging=float(row.get('Lodging', 0)) if pd.notna(row.get('Lodging')) else 0,
@@ -348,7 +372,7 @@ class ReservasiHandler:
                         bill_number=str(row.get('Bill Number', '')),
                         pay_article=str(row.get('Pay Article', '')),
                         rate_code=str(row.get('Rate Code', '')),
-                        res_no=str(row.get('Res No', '')),
+                        res_no=str(row.get('Res No', '')), # Double?
                         adult_count=int(row.get('Adult', 0)) if pd.notna(row.get('Adult')) else 0,
                         child_count=int(row.get('Child', 0)) if pd.notna(row.get('Child')) else 0,
                         compliment=str(row.get('Compliment', '')),
@@ -394,7 +418,7 @@ class ReservasiHandler:
                         existing_processed.member_no = str(row.get('Member No', ''))
                         existing_processed.member_type = str(row.get('Member Type', ''))
                         existing_processed.email = str(row.get('Email', ''))
-                        existing_processed.mobile_phone = str(row.get('Mobile  Phone', ''))
+                        existing_processed.mobile_phone = str(row.get('Mobile Phone', ''))
                         existing_processed.vip_status = str(row.get('VIP', ''))
                         existing_processed.room_rate = room_rate
                         existing_processed.lodging = float(row.get('Lodging', 0)) if pd.notna(row.get('Lodging')) else 0
@@ -445,7 +469,7 @@ class ReservasiHandler:
                             member_no=str(row.get('Member No', '')),
                             member_type=str(row.get('Member Type', '')),
                             email=str(row.get('Email', '')),
-                            mobile_phone=str(row.get('Mobile  Phone', '')),
+                            mobile_phone=str(row.get('Mobile Phone', '')),
                             vip_status=str(row.get('VIP', '')),
                             room_rate=room_rate,
                             lodging=float(row.get('Lodging', 0)) if pd.notna(row.get('Lodging')) else 0,

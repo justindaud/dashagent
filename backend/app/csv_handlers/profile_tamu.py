@@ -89,14 +89,15 @@ class ProfileTamuHandler:
     
     def strip_country_code(self, phone: str):
         """Strip country code or 0 from phone number, but keep country code without +"""
-        if phone.startswith("0"):
+        if phone.startswith("0") and phone != '0' :
             # If starts with 0, assume Indonesia country code 62
-            return f"62{phone[1:]}"
+            return f"+62{phone[1:]}"
         try:
             num = phonenumbers.parse(phone, None)
             if phonenumbers.is_valid_number(num):
                 # Return with country code but without + symbol
-                return f"{num.country_code}{num.national_number}"
+                # return f"{num.country_code}{num.national_number}"
+                return str(phone) 
             else:
                 return ''
         except:
@@ -287,8 +288,20 @@ class ProfileTamuHandler:
                 df['Mobile No.'] = df['Mobile No.'].fillna(df['Phone'])
             
             # Clean other fields
+            # [Add] clean "Nan" to empty string
             if 'Email' in df.columns:
-                df['Email'] = df['Email'].str.strip().str.lower()
+                df['Email'] = (
+                    df['Email']
+                    .str.strip()
+                    .str.lower()
+                    .apply(
+                        lambda x: "" 
+                        if (
+                            x.upper() in ["NAN", "NONE", "NULL", "NA", "N A", "N/A"]  # hanya NA
+                            or re.fullmatch(r"[\W_]+", x) is not None   # hanya simbol/non-alfanumerik
+                        ) else x
+                    )
+                )
             
             if 'Birth Date' in df.columns:
                 df['Birth Date'] = df['Birth Date'].apply(self.clean_birth_date)
