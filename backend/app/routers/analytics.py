@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case, text
+from sqlalchemy import func, case, text, cast, Date
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
@@ -180,8 +180,8 @@ def get_dimensions(
             if end_dt <= start_dt:
                 raise HTTPException(status_code=400, detail="end must be after start")
             query = query.filter(
-                ReservasiProcessed.arrival_date < end_dt,
-                ReservasiProcessed.depart_date > start_dt,
+                cast(ReservasiProcessed.arrival_date, Date) < end_dt,
+                cast(ReservasiProcessed.depart_date, Date) > start_dt,
             )
 
         # Distinct values per dimension

@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from app.database import get_db
 
 from app.models import ProfileTamu, Reservasi, ChatWhatsapp, TransaksiResto, ProfileTamuProcessed, ReservasiProcessed, ChatWhatsappProcessed, TransaksiRestoProcessed
-from sqlalchemy import func, and_
+from sqlalchemy import func, cast, Date, and_
 from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -20,7 +20,10 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
         total_transactions = db.query(TransaksiRestoProcessed).count()
         
         # Get latest depart_date for default date range
-        latest_depart = db.query(func.max(ReservasiProcessed.depart_date)).scalar()
+        latest_depart = (
+                db.query(func.max(cast(ReservasiProcessed.depart_date, Date)))
+                .scalar()
+            )
         latest_depart_str = latest_depart.strftime('%Y-%m-%d') if latest_depart else None
         
         return {
