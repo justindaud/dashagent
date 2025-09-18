@@ -4,7 +4,7 @@ from pydantic import Field, ConfigDict
 from app.utils.trim import TrimmedModel
 
 class SessionCreate(TrimmedModel):
-    title: Optional[str] = Field(default=None, max_length=255)
+    pass
 
 class SessionOut(TrimmedModel):
     session_id: str
@@ -13,3 +13,6 @@ class SessionOut(TrimmedModel):
 
 class SessionsOut(TrimmedModel):
     items: List[SessionOut]
+
+class SessionTitleUpdate(TrimmedModel):
+    title: str = Field(min_length=1, max_length=255)
