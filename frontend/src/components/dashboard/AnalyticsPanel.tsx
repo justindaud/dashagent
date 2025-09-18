@@ -188,12 +188,12 @@ export function AnalyticsPanel({
       <div className="border-t pt-4">
         <h4 className="font-semibold mb-4">Results</h4>
         {state.data ? (
-          <div className="space-y-8">
+          <div className="space-y-8 ">
             {/* Revenue Section */}
-            <div className="mb-6">
-              <div className="text-center p-4 bg-blue-50 rounded-lg mb-4">
-                <div className="text-2xl font-bold text-blue-600">{formatCurrency(state.data.totals.revenue_sum)}</div>
-                <div className="text-sm text-gray-600">Total Revenue</div>
+            <div className="mb-4 rounded-lg border-2 border-primary">
+              <div className="text-center p-4 bg-primary/10 rounded-t-lg mb-4">
+                <div className="text-lg text-gray-700">Total Revenue</div>
+                <div className="text-2xl font-bold text-primary">{formatCurrency(state.data.totals.revenue_sum)}</div>
                 <div className="text-xs text-gray-500 mt-1">{formatDateRange(state.dateRange?.from, state.dateRange?.to)}</div>
               </div>
               <PieChartContainer
@@ -202,15 +202,15 @@ export function AnalyticsPanel({
                 nameKey="key"
                 title="Revenue Breakdown"
                 description={`By ${state.group_by}`}
-                className="min-h-[300px]"
+                className="min-h-[300px]  p-4"
               />
             </div>
 
             {/* Occupancy Section */}
-            <div className="mb-6">
-              <div className="text-center p-4 bg-green-50 rounded-lg mb-4">
-                <div className="text-2xl font-bold text-green-600">{computeOccupancyPct(state.data, state.totalRooms).toFixed(1)}%</div>
-                <div className="text-sm text-gray-600">Occupancy Rate</div>
+            <div className="mb-4 rounded-lg border-2 border-primary">
+              <div className="text-center p-4 bg-primary/10 rounded-t-lg mb-4">
+                <div className="text-lg text-gray-700">Occupancy Rate</div>
+                <div className="text-2xl font-bold primary text-primary">{computeOccupancyPct(state.data, state.totalRooms).toFixed(1)}%</div>
                 <div className="text-xs text-gray-500 mt-1">{formatDateRange(state.dateRange?.from, state.dateRange?.to)}</div>
               </div>
               <PieChartContainer
@@ -219,15 +219,15 @@ export function AnalyticsPanel({
                 nameKey="key"
                 title="Occupancy Breakdown"
                 description={`By ${state.group_by}`}
-                className="min-h-[300px]"
+                className="min-h-[300px] p-4"
               />
             </div>
 
             {/* ARR Section */}
-            <div className="mb-6">
-              <div className="text-center p-4 bg-purple-50 rounded-lg mb-4">
-                <div className="text-2xl font-bold text-purple-600">{formatCurrency(state.data.totals.arr_simple)}</div>
-                <div className="text-sm text-gray-600">Average Room Rate</div>
+            <div className="mb-4 rounded-lg border-2 border-primary">
+              <div className="text-center p-4 bg-primary/10 rounded-t-lg mb-4">
+                <div className="text-lg text-gray-700">Average Room Rate</div>
+                <div className="text-2xl font-bold primary text-primary">{formatCurrency(state.data.totals.arr_simple)}</div>
                 <div className="text-xs text-gray-500 mt-1">{formatDateRange(state.dateRange?.from, state.dateRange?.to)}</div>
               </div>
               <PieChartContainer
@@ -236,7 +236,7 @@ export function AnalyticsPanel({
                 nameKey="key"
                 title="ARR Breakdown"
                 description={`By ${state.group_by}`}
-                className="min-h-[300px]"
+                className="min-h-[300px] p-4"
               />
             </div>
           </div>
