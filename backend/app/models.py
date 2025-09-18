@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.database import Base
+from app.db.database import Base
 
 
 # class User(Base):
@@ -22,7 +22,7 @@ class CSVUpload(Base):
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String(255), nullable=False)
     file_type = Column(String(50), nullable=False)  # profile_tamu, reservasi, etc
-    uploaded_by = Column(Integer, ForeignKey("users.id"))
+    uploaded_by = Column(String(36), ForeignKey("users.id"))
     status = Column(String(20), default="processing")  # processing, completed, failed
     rows_processed = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
@@ -93,14 +93,14 @@ class Reservasi(Base):
     
     # Dates and times
     in_house_date = Column(String(20))              # In House Date from CSV
-    arrival_date = Column(String(20))               # Arrival from CSV
-    depart_date = Column(String(20))                # Depart from CSV
+    arrival_date = Column(String(20))               # Arrival from CSV | YYYY-MM-DD format
+    depart_date = Column(String(20))                # Depart from CSV | YYYY-MM-DD format
     check_in_time = Column(String(20))              # C/I Time from CSV
     check_out_time = Column(String(20))             # C/O Time from CSV
     created_date = Column(String(20))               # Created from CSV
     
     # Guest details
-    birth_date = Column(String(20))                 # Birth Date from CSV
+    birth_date = Column(String(20))                 # Birth Date from CSV | YYYY-MM-DD format
     age = Column(Integer)                           # Age from CSV
     member_no = Column(String(50))                  # Member No from CSV
     member_type = Column(String(50))                # Member Type from CSV
@@ -239,8 +239,8 @@ class ReservasiProcessed(Base):
     
     # Dates and times
     in_house_date = Column(String(20))              # In House Date from CSV
-    arrival_date = Column(DateTime)                 # Arrival from CSV
-    depart_date = Column(DateTime)                  # Depart from CSV
+    arrival_date = Column(String(20))               # Arrival from CSV
+    depart_date = Column(String(20))                # Depart from CSV
     check_in_time = Column(String(20))              # C/I Time from CSV
     check_out_time = Column(String(20))             # C/O Time from CSV
     created_date = Column(String(20))               # Created from CSV
