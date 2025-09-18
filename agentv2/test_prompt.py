@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from agents.extensions.memory.sqlalchemy_session import SQLAlchemySession
 from sqlalchemy.ext.asyncio import create_async_engine
+from agents_tools.sematicsearch_tool import search_insights_semantic
 load_dotenv()
 
 EXPERIENCE_VS_ID = os.getenv("EXPERIENCE_VS_ID")
@@ -59,7 +60,7 @@ async def main():
 
     # make session
     session = SQLAlchemySession(
-        "testprompt5",
+        "testsematictool5",
         engine=engine,
         create_tables=True,
     )
@@ -68,18 +69,19 @@ async def main():
         name="Prompt_Agent",
         instructions=PROMPT_AGENT_PROMPT,
         tools=[
-            FileSearchTool(vector_store_ids=[VS_ID], max_num_results=4),
-            FileSearchTool(vector_store_ids=[EXPERIENCE_VS_ID], max_num_results=4)
+            #FileSearchTool(vector_store_ids=[VS_ID], max_num_results=4),
+            #FileSearchTool(vector_store_ids=[EXPERIENCE_VS_ID], max_num_results=4),
+            search_insights_semantic
         ],
         model="gpt-5",
         output_type=PromptResponse,
-        #model_settings=ModelSettings(tool_choice="auto")
+        model_settings=ModelSettings(tool_choice="required")
         )
     
     with trace("testing agent"):
         result = await Runner.run(
             agent,
-            "bisa jelaskan apakah yang bisa dilakukan untuk meningkatkan performa hotel saya?",
+            "profile tamu apa saja yang bisa kita akses atau kita simpan dalam DB?",
             session=session,
             )
         print(result.final_output)

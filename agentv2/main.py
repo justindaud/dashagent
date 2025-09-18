@@ -197,15 +197,23 @@ class DashboardAgent:
 
                 try:
                     q = f"""
-                        SELECT 
-                            s.session_id,
-                            si.session_id as analyzed_session
+                        WITH latest AS (
+                            SELECT session_id
+                            FROM agent_sessions
+                            ORDER BY updated_at DESC
+                            LIMIT 1
+                            )
+                        SELECT s.session_id
                         FROM agent_sessions s
-                        LEFT JOIN session_insights si ON s.session_id = si.session_id
-                        WHERE s.updated_at = (
-                            SELECT MAX(updated_at) FROM agent_sessions
-                        )
-                        AND si.session_id IS NULL
+                        LEFT JOIN LATERAL (
+                            SELECT MAX(si.created_at) AS last_insight_at
+                            FROM session_insights si
+                            WHERE si.session_id = s.session_id
+                        ) x ON TRUE
+                        WHERE s.session_id NOT IN (SELECT session_id FROM latest)           -- bukan yang paling baru (aktif)
+                            AND (x.last_insight_at IS NULL OR x.last_insight_at < s.updated_at) -- butuh update
+                        ORDER BY s.updated_at ASC                                            -- paling lama tertunda duluan
+                        LIMIT 1;
                         """
                     
                     console.print("[bold cyan]Fetching experience...[/bold cyan]")
@@ -286,6 +294,7 @@ async def main():
             analyzer_task = asyncio.create_task(dashboard_agent.analyzer())
             memory_task = asyncio.create_task(dashboard_agent.memory_updater())
             await asyncio.gather(analyzer_task, memory_task)
+            #await memory_task
             
             # prompt_response = await decompose_task
 
