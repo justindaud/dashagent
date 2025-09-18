@@ -1,4 +1,4 @@
-# app/settings.py
+# app/config/settings.py
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os

@@ -1,11 +1,10 @@
 # backend/app/main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, csv as csv_router, dashboard, analytics
-from starlette.requests import Request
-from fastapi.exceptions import RequestValidationError
+from app.routers import csv as csv_router, dashboard, analytics
 
 from app.db.database import Base, engine
+from app.config.settings import settings
 from app.routers.auth_routes import router as auth_router
 from app.routers.user_routes import router as user_router
 from app.routers.profile_routes import router as profile_router
@@ -20,10 +19,9 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="DashAgent API", version="1.0.0")
 
 # CORS middleware
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,3 +42,7 @@ setup_exception_handlers(app)
 @app.get("/")
 def read_root():
     return {"message": "DashAgent API is running!"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.PORT, reload=False)
