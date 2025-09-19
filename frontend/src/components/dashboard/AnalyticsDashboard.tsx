@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { AnalyticsPanel } from "./AnalyticsPanel";
 import { DimensionOptions, PanelState } from "@/lib/types";
+import { Separator } from "@/components/ui/separator";
 
 interface AnalyticsDashboardProps {
   compareOn: boolean;
@@ -35,59 +36,84 @@ export function AnalyticsDashboard({
   computeOccupancyPct,
 }: AnalyticsDashboardProps) {
   return (
-    <Card className="shadow-md">
-      <CardHeader className="space-y-4">
-        {/* Judul Kartu */}
+    <Card className="shadow-sm">
+      <CardHeader className="space-y-4 px-4 sm:px-6">
         <CardTitle className="flex items-center gap-2 font-semibold">
           <BarChart3 className="w-6 h-6" />
           Analytics Dashboard
         </CardTitle>
-        {/* Switch untuk Mode Perbandingan */}
         <div className="flex items-center gap-2">
           <Switch id="compareToggle" checked={compareOn} onCheckedChange={setCompareOn} />
-          <label htmlFor="compareToggle" className="text-normal font-medium text-gray-700">
+          <label htmlFor="compareToggle" className="text-sm sm:text-base font-medium text-gray-700">
             Enable Compare Mode
           </label>
         </div>
       </CardHeader>
-      <CardContent className="pt-6">
-        {/* Tampilan kondisional berdasarkan state 'compareOn' */}
+      <CardContent className="pt-4 sm:pt-6">
         {compareOn ? (
-          <ResizablePanelGroup direction="horizontal" className="min-h-[600px] rounded-lg border">
-            <ResizablePanel defaultSize={50} minSize={30}>
-              <div className="p-6 h-full overflow-y-auto">
-                <AnalyticsPanel
-                  panelId="A"
-                  state={panelA}
-                  setState={setPanelA}
-                  dimensions={dimensions}
-                  onApply={fetchAnalytics}
-                  formatCurrency={formatCurrency}
-                  formatDateRange={formatDateRange}
-                  computeOccupancyPct={computeOccupancyPct}
-                />
-              </div>
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={50} minSize={30}>
-              <div className="p-6 h-full overflow-y-auto">
-                <AnalyticsPanel
-                  panelId="B"
-                  state={panelB}
-                  setState={setPanelB}
-                  dimensions={dimensions}
-                  onApply={fetchAnalytics}
-                  isDisabled={!compareOn}
-                  formatCurrency={formatCurrency}
-                  formatDateRange={formatDateRange}
-                  computeOccupancyPct={computeOccupancyPct}
-                />
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+          <>
+            <div className="hidden lg:block">
+              <ResizablePanelGroup direction="horizontal" className="min-h-[600px] rounded-lg border">
+                <ResizablePanel defaultSize={50} minSize={30}>
+                  <div className="p-4 sm:p-6 h-full overflow-y-auto">
+                    <AnalyticsPanel
+                      panelId="A"
+                      state={panelA}
+                      setState={setPanelA}
+                      dimensions={dimensions}
+                      onApply={fetchAnalytics}
+                      formatCurrency={formatCurrency}
+                      formatDateRange={formatDateRange}
+                      computeOccupancyPct={computeOccupancyPct}
+                    />
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={50} minSize={30}>
+                  <div className="p-4 sm:p-6 h-full overflow-y-auto">
+                    <AnalyticsPanel
+                      panelId="B"
+                      state={panelB}
+                      setState={setPanelB}
+                      dimensions={dimensions}
+                      onApply={fetchAnalytics}
+                      isDisabled={!compareOn}
+                      formatCurrency={formatCurrency}
+                      formatDateRange={formatDateRange}
+                      computeOccupancyPct={computeOccupancyPct}
+                    />
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </div>
+
+            <div className="lg:hidden flex flex-col gap-6 px-2 sm:px-4">
+              <AnalyticsPanel
+                panelId="A"
+                state={panelA}
+                setState={setPanelA}
+                dimensions={dimensions}
+                onApply={fetchAnalytics}
+                formatCurrency={formatCurrency}
+                formatDateRange={formatDateRange}
+                computeOccupancyPct={computeOccupancyPct}
+              />
+              <Separator />
+              <AnalyticsPanel
+                panelId="B"
+                state={panelB}
+                setState={setPanelB}
+                dimensions={dimensions}
+                onApply={fetchAnalytics}
+                isDisabled={!compareOn}
+                formatCurrency={formatCurrency}
+                formatDateRange={formatDateRange}
+                computeOccupancyPct={computeOccupancyPct}
+              />
+            </div>
+          </>
         ) : (
-          // Tampilan Satu Panel (Mode Standar)
-          <div className="px-4">
+          <div className="px-2 sm:px-4">
             <AnalyticsPanel
               panelId="A"
               state={panelA}

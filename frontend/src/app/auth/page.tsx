@@ -1,6 +1,5 @@
 "use client";
 
-// Import React untuk tipe data event
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -16,14 +15,15 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Perbaikan 1: Tambahkan tipe data untuk parameter 'event'
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); // (Baris 17) Sekarang sudah aman
+    event.preventDefault();
     setIsLoading(true);
     setError("");
 
     try {
-      const response = await fetch("http://localhost:8000/api/auth/login", {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -40,7 +40,6 @@ export default function AuthPage() {
       localStorage.setItem("authToken", data.dash_agent);
       router.push("/");
     } catch (err) {
-      // Perbaikan 2: Cek tipe data 'err' sebelum digunakan
       if (err instanceof Error) {
         setError(err.message);
       } else {
@@ -49,11 +48,11 @@ export default function AuthPage() {
       console.error("Login error:", err);
     } finally {
       setIsLoading(false);
-    } // (Baris 46) Error di sekitar sini sudah teratasi
+    }
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 sm:p-6 lg:p-8">
       <Card className="w-full max-w-sm">
         <form onSubmit={handleLogin}>
           <CardHeader>

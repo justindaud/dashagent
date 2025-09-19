@@ -6,6 +6,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { PieChartContainer } from "@/components/ui/chart";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { DimensionOptions, GroupBy, PanelState } from "@/lib/types";
 
@@ -20,6 +21,23 @@ interface AnalyticsPanelProps {
   computeOccupancyPct: (data: PanelState["data"], totalRooms: number) => number;
   isDisabled?: boolean;
 }
+
+const ResultsSkeleton = () => (
+  <div className="space-y-8 animate-pulse">
+    {[...Array(3)].map((_, i) => (
+      <div key={i} className="rounded-lg border-2">
+        <div className="p-4 bg-gray-100 rounded-t-lg mb-4 space-y-2">
+          <Skeleton className="h-6 w-1/3 mx-auto" />
+          <Skeleton className="h-8 w-1/2 mx-auto" />
+          <Skeleton className="h-4 w-2/3 mx-auto" />
+        </div>
+        <div className="p-4">
+          <Skeleton className="h-[300px] w-full" />
+        </div>
+      </div>
+    ))}
+  </div>
+);
 
 export function AnalyticsPanel({
   panelId,
@@ -56,84 +74,86 @@ export function AnalyticsPanel({
       <Accordion type="single" collapsible className="w-full mb-4">
         <AccordionItem value={`filters-${panelId}`}>
           <AccordionTrigger className="text-sm font-medium">Advanced Filters & Dimensions</AccordionTrigger>
-          <AccordionContent className="space-y-4 pt-4">
-            {/* Group By Dropdown */}
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600 font-medium">Group By</label>
+          <AccordionContent className="pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Group By Dropdown */}
+              <div className="space-y-2">
+                <label className="text-sm text-gray-600 font-medium">Group By</label>
 
-              <Select value={state.group_by} onValueChange={(value) => handleStateChange("group_by", value as GroupBy)}>
-                <SelectTrigger className="w-full bg-white hover:border-primary">
-                  <SelectValue placeholder="Select how to group data" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="segment">Segment</SelectItem>
-                  <SelectItem value="room_type">Room Type</SelectItem>
-                  <SelectItem value="local_region">City (local_region)</SelectItem>
-                  <SelectItem value="nationality">Nationality</SelectItem>
-                  <SelectItem value="age_group">Age Group</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                <Select value={state.group_by} onValueChange={(value) => handleStateChange("group_by", value as GroupBy)}>
+                  <SelectTrigger className="w-full bg-white hover:border-primary">
+                    <SelectValue placeholder="Select how to group data" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="segment">Segment</SelectItem>
+                    <SelectItem value="room_type">Room Type</SelectItem>
+                    <SelectItem value="local_region">City (local_region)</SelectItem>
+                    <SelectItem value="nationality">Nationality</SelectItem>
+                    <SelectItem value="age_group">Age Group</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Filter Segments */}
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600 font-medium">Select segments</label>
-              <MultiSelect
-                options={dimensions.segment}
-                selected={state.segmentSelected.split(",").filter(Boolean)}
-                onChange={(selected) => handleStateChange("segmentSelected", selected.join(","))}
-                placeholder="Select segments..."
-                searchPlaceholder="Search segments..."
-                className="mt-1 hover:border-primary"
-              />
-            </div>
+              {/* Filter Segments */}
+              <div className="space-y-2">
+                <label className="text-sm text-gray-600 font-medium">Select segments</label>
+                <MultiSelect
+                  options={dimensions.segment}
+                  selected={state.segmentSelected.split(",").filter(Boolean)}
+                  onChange={(selected) => handleStateChange("segmentSelected", selected.join(","))}
+                  placeholder="Select segments..."
+                  searchPlaceholder="Search segments..."
+                  className="mt-1 hover:border-primary"
+                />
+              </div>
 
-            {/* Filter Room Types */}
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600 font-medium">Select room types</label>
-              <MultiSelect
-                options={dimensions.room_type}
-                selected={state.roomTypeSelected.split(",").filter(Boolean)}
-                onChange={(selected) => handleStateChange("roomTypeSelected", selected.join(","))}
-                placeholder="Select room types..."
-                searchPlaceholder="Search room types..."
-                className="mt-1 hover:border-primary"
-              />
-            </div>
+              {/* Filter Room Types */}
+              <div className="space-y-2">
+                <label className="text-sm text-gray-600 font-medium">Select room types</label>
+                <MultiSelect
+                  options={dimensions.room_type}
+                  selected={state.roomTypeSelected.split(",").filter(Boolean)}
+                  onChange={(selected) => handleStateChange("roomTypeSelected", selected.join(","))}
+                  placeholder="Select room types..."
+                  searchPlaceholder="Search room types..."
+                  className="mt-1 hover:border-primary"
+                />
+              </div>
 
-            {/* Filter Cities */}
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600 font-medium">Select cities</label>
-              <MultiSelect
-                options={dimensions.local_region}
-                selected={state.localRegionSelected.split(",").filter(Boolean)}
-                onChange={(selected) => handleStateChange("localRegionSelected", selected.join(","))}
-                placeholder="Select cities..."
-                searchPlaceholder="Search cities..."
-                className="mt-1 hover:border-primary"
-              />
-            </div>
+              {/* Filter Cities */}
+              <div className="space-y-2">
+                <label className="text-sm text-gray-600 font-medium">Select cities</label>
+                <MultiSelect
+                  options={dimensions.local_region}
+                  selected={state.localRegionSelected.split(",").filter(Boolean)}
+                  onChange={(selected) => handleStateChange("localRegionSelected", selected.join(","))}
+                  placeholder="Select cities..."
+                  searchPlaceholder="Search cities..."
+                  className="mt-1 hover:border-primary"
+                />
+              </div>
 
-            {/* Filter Nationalities */}
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600 font-medium">Select nationalities</label>
-              <MultiSelect
-                options={dimensions.nationality}
-                selected={state.nationalitySelected.split(",").filter(Boolean)}
-                onChange={(selected) => handleStateChange("nationalitySelected", selected.join(","))}
-                placeholder="Select nationalities..."
-                searchPlaceholder="Search nationalities..."
-                className="mt-1 hover:border-primary"
-              />
+              {/* Filter Nationalities */}
+              <div className="space-y-2">
+                <label className="text-sm text-gray-600 font-medium">Select nationalities</label>
+                <MultiSelect
+                  options={dimensions.nationality}
+                  selected={state.nationalitySelected.split(",").filter(Boolean)}
+                  onChange={(selected) => handleStateChange("nationalitySelected", selected.join(","))}
+                  placeholder="Select nationalities..."
+                  searchPlaceholder="Search nationalities..."
+                  className="mt-1 hover:border-primary"
+                />
+              </div>
             </div>
           </AccordionContent>
         </AccordionItem>
 
         <AccordionItem value={`options-${panelId}`}>
           <AccordionTrigger className="text-sm font-medium">Display Options & Settings</AccordionTrigger>
-          <AccordionContent className="space-y-4 pt-4">
-            <div className="grid grid-cols-2 gap-4">
+          <AccordionContent className=" pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Top N Input */}
               <div className="space-y-2">
                 <label className="text-sm text-gray-600 font-medium">Top N</label>
@@ -187,7 +207,9 @@ export function AnalyticsPanel({
       {/* Hasil Analitik */}
       <div className="border-t pt-4">
         <h4 className="font-semibold mb-4">Results</h4>
-        {state.data ? (
+        {state.loading ? (
+          <ResultsSkeleton />
+        ) : state.data ? (
           <div className="space-y-8 ">
             {/* Revenue Section */}
             <div className="mb-4 rounded-lg border-2 border-primary">
@@ -241,7 +263,7 @@ export function AnalyticsPanel({
             </div>
           </div>
         ) : (
-          <div className="text-sm text-gray-500 text-center py-10">No data. Click Apply to load analytics.</div>
+          <div className="text-sm text-gray-500 text-center py-10 border rounded-lg">No data. Click Apply to load analytics.</div>
         )}
       </div>
     </div>

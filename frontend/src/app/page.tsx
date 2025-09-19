@@ -137,7 +137,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header page="dashboard" onUploadClick={() => setIsUploadModalOpen(true)} />
-      <main className="max-w-7xl mx-auto sm:px-6 lg:px-8 py-4">
+      <main className="mx-auto max-w-7xl p-4 sm:px-6 lg:px-8 sm:py-6">
         <StatCards stats={stats} />
 
         <AnalyticsDashboard
