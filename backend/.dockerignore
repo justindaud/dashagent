@@ -1,0 +1,16 @@
+# venv & cache
+venv/
+**/__pycache__/
+*.pyc
+
+# git & editor
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+
+# lain-lain yang tidak perlu ke image
+*.log

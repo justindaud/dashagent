@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: frontend-dashagent
+    image: frontend-dashagent
+    ports:
+      - "3001:3001"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    command: npm run dev
+    restart: always
+    env_file:
+      - .env

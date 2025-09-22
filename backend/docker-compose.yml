@@ -1,0 +1,16 @@
+services:
+  backend_dashagent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 4400
+    ports:
+      - "4400:4400"
+    env_file:
+    - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python - <<'PY'\nimport os,socket,sys\np=int(os.environ.get('PORT',4400))\ns=socket.socket(); s.settimeout(2)\ntry:\n  s.connect(('127.0.0.1',p)); s.close(); sys.exit(0)\nexcept Exception:\n  sys.exit(1)\nPY"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
