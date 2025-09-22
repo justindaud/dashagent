@@ -2,6 +2,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import csv as csv_router, dashboard, analytics
+import logging
+from contextlib import asynccontextmanager
 
 from app.db.database import Base, engine
 from app.config.settings import settings
@@ -12,11 +14,20 @@ from app.routers.session_routes import router as session_router
 from app.routers.agent_routes import router as agent_router
 from app.utils.response import setup_exception_handlers
 
-# Create database tables
+from app.jobs.cleanup_session import start_prealloc_cleanup_scheduler, stop_prealloc_cleanup_scheduler
+
+logging.basicConfig(level=logging.INFO)
+
 Base.metadata.create_all(bind=engine)
 
-# FastAPI app
-app = FastAPI(title="DashAgent API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_prealloc_cleanup_scheduler()
+    yield
+    stop_prealloc_cleanup_scheduler()
+
+# Fast API
+app = FastAPI(title="DashAgent API", version="1.0.0", lifespan=lifespan)
 
 # CORS middleware
 app.add_middleware(
