@@ -1,13 +1,12 @@
 "use client";
-// import AuthGuard from "@/components/auth/AuthGuard";
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { DashboardStats, DimensionOptions, PanelState, AnalyticsResponse } from "../lib/types";
+import { DashboardStats, DimensionOptions, PanelState, AnalyticsResponse } from "../../lib/types";
 
-import { Header } from "../components/dashboard/Header";
-import { StatCards } from "../components/dashboard/StatCards";
-import { AnalyticsDashboard } from "../components/dashboard/AnalyticsDashboard";
-import { UploadModal } from "../components/dashboard/UploadModal";
+import { Header } from "../../components/dashboard/Header";
+import { StatCards } from "../../components/dashboard/StatCards";
+import { AnalyticsDashboard } from "../../components/dashboard/AnalyticsDashboard";
+import { UploadModal } from "../../components/dashboard/UploadModal";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -52,7 +51,7 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      const statsRes = await axios.get(`${API_BASE}/dashboard/stats`);
+      const statsRes = await axios.get(`${API_BASE}/dashboard/stats`, { withCredentials: true });
       setStats(statsRes.data);
 
       if (statsRes.data.latest_depart_date) {
@@ -76,6 +75,7 @@ export default function DashboardPage() {
           start: dateRange.from.toISOString().slice(0, 10),
           end: dateRange.to.toISOString().slice(0, 10),
         },
+        withCredentials: true,
       });
       setDimensions(res.data);
     } catch (e) {
@@ -109,7 +109,7 @@ export default function DashboardPage() {
         top_n: ps.topN,
         include_other: ps.includeOther,
       };
-      const res = await axios.get<AnalyticsResponse>(`${API_BASE}/analytics/aggregate`, { params });
+      const res = await axios.get<AnalyticsResponse>(`${API_BASE}/analytics/aggregate`, { params, withCredentials: true });
       setPs((prev) => ({ ...prev, data: res.data, loading: false }));
     } catch (e: any) {
       setPs((prev) => ({ ...prev, error: e?.response?.data?.detail || "Failed to fetch analytics", loading: false }));
