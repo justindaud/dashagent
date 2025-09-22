@@ -1,31 +1,29 @@
-"use client"; // Komponen ini perlu berjalan di sisi client untuk mengakses localStorage
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
-// Komponen ini akan membungkus halaman yang ingin kita lindungi
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  // State untuk melacak apakah pengecekan sudah selesai
   const [isVerified, setIsVerified] = useState(false);
 
   useEffect(() => {
-    // Cek apakah ada token di localStorage
-    const token = localStorage.getItem("authToken");
+    const loggedIn = localStorage.getItem("isLoggedIn");
 
-    if (!token) {
-      // Jika tidak ada token, tendang ke halaman login
+    if (loggedIn !== "true") {
       router.push("/auth");
     } else {
-      // Jika ada token, izinkan pengguna melihat halaman
       setIsVerified(true);
     }
-  }, [router]); // useEffect akan berjalan saat komponen dimuat
+  }, [router]);
 
-  // Selama pengecekan, jangan tampilkan apa-apa (atau tampilkan loading spinner)
-  // Setelah terverifikasi, tampilkan konten halaman (`children`)
   if (!isVerified) {
-    return null; // atau <p>Loading...</p>
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
   }
 
   return <>{children}</>;
