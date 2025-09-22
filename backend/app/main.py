@@ -11,6 +11,7 @@ from app.routers.user_routes import router as user_router
 from app.routers.profile_routes import router as profile_router
 from app.routers.session_routes import router as session_router
 from app.routers.agent_routes import router as agent_router
+from app.routers.room_build_routes import router as room_build_router
 from app.utils.response import setup_exception_handlers
 
 # Create database tables
@@ -38,6 +39,7 @@ app.include_router(user_router)
 app.include_router(profile_router)
 app.include_router(session_router)
 app.include_router(agent_router)
+app.include_router(room_build_router)
 
 setup_exception_handlers(app)
 

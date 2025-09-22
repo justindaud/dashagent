@@ -4,25 +4,13 @@ from sqlalchemy.sql import func
 from app.db.database import Base
 
 
-# class User(Base):
-#     __tablename__ = "users"
-    
-#     id = Column(Integer, primary_key=True, index=True)
-#     username = Column(String(50), unique=True, index=True, nullable=False)
-#     email = Column(String(100), unique=True, index=True, nullable=False)
-#     hashed_password = Column(String(255), nullable=False)
-#     role = Column(String(20), default="viewer")  # admin, manager, viewer
-#     is_active = Column(Boolean, default=True)
-#     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
 class CSVUpload(Base):
     __tablename__ = "csv_uploads"
     
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String(255), nullable=False)
     file_type = Column(String(50), nullable=False)  # profile_tamu, reservasi, etc
-    uploaded_by = Column(Integer, ForeignKey("users.id"))
+    uploaded_by = Column(String(36), ForeignKey("users.user_id"))
     status = Column(String(20), default="processing")  # processing, completed, failed
     rows_processed = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
