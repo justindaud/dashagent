@@ -6,7 +6,7 @@ load_dotenv()
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 from rich.console import Console
 from rich.prompt import Prompt
@@ -130,6 +130,75 @@ async def stream_once(result, session_id: str, user_id: str):
     
     return {"final_text": final_text, "tool_events": tool_events}
 
+# ---------- messages helpers ----------
+async def fetch_agent_messages(engine, session_id: str, run_id: Optional[str] = None, *, after_id: int = 0, limit: int = 50) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    if not limit or limit <= 0:
+        limit = 50
+
+    if run_id:
+        sql = """
+          SELECT id, session_id, run_id, message_data, created_at
+          FROM agent_messages
+          WHERE session_id = :sid AND run_id = :rid AND id > :after_id
+          ORDER BY id ASC
+          LIMIT :limit
+        """
+        params = {"sid": session_id, "rid": run_id, "after_id": after_id, "limit": limit}
+    else:
+        sql = """
+          SELECT id, session_id, run_id, message_data, created_at
+          FROM agent_messages
+          WHERE session_id = :sid AND id > :after_id
+          ORDER BY id ASC
+          LIMIT :limit
+        """
+        params = {"sid": session_id, "after_id": after_id, "limit": limit}
+
+    async with engine.begin() as conn:
+        res = await conn.execute(text(sql), params)
+        for r in res:
+            m = r._mapping
+            raw = m["message_data"]
+            try:
+                msg = json.loads(raw) if isinstance(raw, str) else raw
+            except Exception:
+                msg = {"text": str(raw)}
+
+            created_at = m.get("created_at")
+
+            rows.append({
+                "id": int(m["id"]),
+                "session_id": m["session_id"],
+                "run_id": m.get("run_id"),
+                "message": msg,
+                "created_at": created_at,
+            })
+    return rows
+
+async def get_last_message_id(engine, session_id: str) -> int:
+    async with engine.begin() as conn:
+        res = await conn.execute(
+            text("SELECT COALESCE(MAX(id), 0) AS last_id FROM agent_messages WHERE session_id = :sid"),
+            {"sid": session_id},
+        )
+        row = res.first()
+        return int(row._mapping["last_id"]) if row else 0
+
+async def tag_messages_with_run_id(engine, session_id: str, run_id: str, after_id: int) -> int:
+    async with engine.begin() as conn:
+        res = await conn.execute(
+            text("""
+                UPDATE agent_messages
+                   SET run_id = :rid
+                 WHERE session_id = :sid
+                   AND id > :after_id
+                   AND (run_id IS NULL OR run_id = '')
+            """),
+            {"sid": session_id, "rid": run_id, "after_id": after_id},
+        )
+        return res.rowcount or 0
+
 class DashboardAgent:
     def __init__(self, user_input: str, session_id: str, user_id: str, session=None):
         self.user_input = user_input
@@ -211,15 +280,34 @@ class DashboardAgent:
             except Exception as e:
                 console.print(f"[red]Error updating memory:[/red] {e}")
 
-    async def run_background(session_id: str, user_id: str, user_input: str, user_role: Optional[str] = None) -> None:
-        console.print(f"[bold]accepted[/bold] session_id={session_id} user_id={user_id} role={user_role or '-'} prompt={user_input!r}")
+    async def run_and_collect(session_id: str, user_id: str, user_input: str, user_role: Optional[str] = None, run_id: Optional[str] = None) -> Dict[str, Any]:
+        run_id = run_id or uuid.uuid4().hex
+
+        start_marker_id = await get_last_message_id(engine, session_id)
+
+        console.print(f"[bold]accepted[/bold] session_id={session_id} user_id={user_id} role={user_role} prompt={user_input!r} run={run_id}")
 
         sa_session = make_sa_session(session_id)
-        dashboard_agent = DashboardAgent(user_input=user_input, session_id=session_id, user_id=user_id, session=sa_session)
+        agent = DashboardAgent(user_input=user_input, session_id=session_id, user_id=user_id, session=sa_session)
 
+        ok, err = True, None
         try:
-            analyzer_task = asyncio.create_task(dashboard_agent.analyzer())
-            memory_task = asyncio.create_task(dashboard_agent.memory_updater())
+            analyzer_task = asyncio.create_task(agent.analyzer())
+            memory_task  = asyncio.create_task(agent.memory_updater())
             await asyncio.gather(analyzer_task, memory_task)
         except Exception as e:
-            console.print(f"[red]runner.error[/red] session_id={session_id} user_id={user_id} role={user_role or '-'} error={e}")
+            ok, err = False, str(e)
+            console.print(f"[red]runner.error[/red] session_id={session_id} user_id={user_id} role={user_role} run={run_id} error={e}")
+
+        await tag_messages_with_run_id(engine, session_id, run_id, after_id=start_marker_id)
+
+        messages = await fetch_agent_messages(engine, session_id, run_id=run_id, limit=500)
+
+        return {
+            "message": "Agent finished",
+            "session_id": session_id,
+            "user_id": user_id,
+            "role": user_role,
+            "run_id": run_id,
+            "messages": messages,
+        }

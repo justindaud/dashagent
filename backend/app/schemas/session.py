@@ -6,6 +6,10 @@ from app.utils.trim import TrimmedModel
 class SessionCreate(TrimmedModel):
     pass
 
+class SessionPreparedOut(TrimmedModel):
+    session_id: str
+    title_suggestion: str
+
 class SessionOut(TrimmedModel):
     session_id: str
     title: Optional[str] = None
