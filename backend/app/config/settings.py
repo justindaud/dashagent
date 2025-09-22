@@ -28,6 +28,11 @@ class Settings(BaseModel):
     EXPERIENCE_VS_ID: str = os.getenv("EXPERIENCE_VS_ID")
     GOVERNANCE_VS_ID: str = os.getenv("GOVERNANCE_VS_ID")
 
+    # === Scheduler & Prealloc cleanup ===
+    PREALLOC_TTL_MINUTES_UNCONSUMED: int = int(os.getenv("PREALLOC_TTL_MINUTES_UNCONSUMED", "1440"))
+    PREALLOC_TTL_MINUTES_CONSUMED: int = int(os.getenv("PREALLOC_TTL_MINUTES_CONSUMED", "4320"))
+    PREALLOC_CLEANUP_INTERVAL_MINUTES: int = int(os.getenv("PREALLOC_CLEANUP_INTERVAL_MINUTES", "15"))
+
     @property
     def database_url(self) -> str:
         return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
