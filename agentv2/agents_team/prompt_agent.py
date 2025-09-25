@@ -1,5 +1,5 @@
 from agents import Agent, FileSearchTool, ModelSettings
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
 import os
 
@@ -40,6 +40,16 @@ baru untuk menjawab user dengan lebih holistik
 class PromptResponse(BaseModel):
     queries: list[str]
     #thoughts: list[str]
+
+    @field_validator("queries", mode="before")
+    def enforce_prefix(cls, v):
+        prefix = "TASK DARI DECOMPOSER UNTUK ORCHESTRATOR"
+        # v di sini bisa berupa list[str] atau str tunggal, tergantung context
+        if isinstance(v, list):
+            return [q if q.startswith(prefix) else f"{prefix}\n{q}" for q in v]
+        if isinstance(v, str):
+            return v if v.startswith(prefix) else f"{prefix}\n{v}"
+        return v
 
 prompt_agent = Agent(
     name="Prompt Generator Agent",
