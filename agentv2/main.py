@@ -57,7 +57,7 @@ def make_sa_session(session_id: str) -> SQLAlchemySession:
     return SQLAlchemySession(
         session_id=session_id,
         engine=engine,
-        create_tables=True,
+        create_tables=False,
     )
 
 # Stream events
@@ -203,19 +203,31 @@ class DashboardAgent:
                             ORDER BY updated_at DESC
                             LIMIT 1
                             )
-                        SELECT s.session_id
+                        SELECT s.session_id, x.last_insight_at
                         FROM agent_sessions s
                         LEFT JOIN LATERAL (
                             SELECT MAX(si.created_at) AS last_insight_at
                             FROM session_insights si
                             WHERE si.session_id = s.session_id
                         ) x ON TRUE
-                        WHERE s.session_id NOT IN (SELECT session_id FROM latest)           -- bukan yang paling baru (aktif)
-                            AND (x.last_insight_at IS NULL OR x.last_insight_at < s.updated_at) -- butuh update
-                        ORDER BY s.updated_at ASC                                            -- paling lama tertunda duluan
+                        WHERE s.session_id NOT IN (SELECT session_id FROM latest)
+                            AND (x.last_insight_at IS NULL OR x.last_insight_at < s.updated_at)
+                        ORDER BY s.updated_at ASC
                         LIMIT 1;
                         """
-                    
+                    '''    
+                    q = f"""
+                        SELECT 
+                            s.session_id,
+                            si.session_id as analyzed_session
+                        FROM agent_sessions s
+                        LEFT JOIN session_insights si ON s.session_id = si.session_id
+                        WHERE s.updated_at = (
+                            SELECT MAX(updated_at) FROM agent_sessions
+                        )
+                        AND si.session_id IS NULL
+                        """    
+                    '''
                     console.print("[bold cyan]Fetching experience...[/bold cyan]")
 
                     async with engine.connect() as conn:

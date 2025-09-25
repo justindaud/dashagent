@@ -1,7 +1,7 @@
 import os
 import asyncio
 from agents import Agent, Runner, ModelSettings, trace, FileSearchTool, ItemHelpers
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
 from agents.extensions.memory.sqlalchemy_session import SQLAlchemySession
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -54,6 +54,15 @@ HANDOFF_DESCRIPTION = """
 class PromptResponse(BaseModel):
     queries: list[str]
     #thoughts: list[str]
+    @field_validator("queries", mode="before")
+    def enforce_prefix(cls, v):
+        prefix = "TASK DARI DECOMPOSER UNTUK ORCHESTRATOR"
+        # v di sini bisa berupa list[str] atau str tunggal, tergantung context
+        if isinstance(v, list):
+            return [q if q.startswith(prefix) else f"{prefix}\n{q}" for q in v]
+        if isinstance(v, str):
+            return v if v.startswith(prefix) else f"{prefix}\n{v}"
+        return v
 
 async def main():
     engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
@@ -81,7 +90,7 @@ async def main():
     with trace("testing agent"):
         result = await Runner.run(
             agent,
-            "profile tamu apa saja yang bisa kita akses atau kita simpan dalam DB?",
+            "apakah kita menyimpan data instagram hotel kita?",
             session=session,
             )
         print(result.final_output)
