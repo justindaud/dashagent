@@ -6,7 +6,7 @@ from phonenumbers import geocoder
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from fastapi import UploadFile, HTTPException
-from app.models import CSVUpload, ProfileTamu, ProfileTamuProcessed
+from app.model.models import CSVUpload, ProfileTamu, ProfileTamuProcessed
 from io import StringIO
 
 
@@ -88,10 +88,18 @@ class ProfileTamuHandler:
         }
     
     def strip_country_code(self, phone: str):
-        """Strip country code or 0 from phone number, but keep country code without +"""
-        if phone.startswith("0") and phone != '0' :
-            # If starts with 0, assume Indonesia country code 62
+        if phone == '0':
+            return ''
+        
+        if not(re.match(r"^\+?\d+$", phone)):
+            return ''
+
+        if phone.startswith("0"):
             return f"+62{phone[1:]}"
+        
+        if phone.startswith("8"):
+            return f"+62{phone}"
+        
         try:
             num = phonenumbers.parse(phone, None)
             if phonenumbers.is_valid_number(num):
@@ -449,7 +457,7 @@ class ProfileTamuHandler:
                     else:
                         # Generate new guest_id only for truly new guests
                         if name and phone:
-                            guest_id = f"{name}_{phone}".replace(' ', '_').replace('-', '_')[:50]
+                            guest_id = f"{name}_{phone.replace('+','')}".replace(' ', '_').replace('-', '_')[:50]
                         elif name and email:
                             guest_id = f"{name}_{email}".replace(' ', '_').replace('@', '_').replace('.', '_')[:50]
                         elif name:

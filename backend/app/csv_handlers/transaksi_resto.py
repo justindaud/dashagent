@@ -2,7 +2,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from fastapi import UploadFile, HTTPException
-from app.models import CSVUpload, TransaksiResto, TransaksiRestoProcessed
+from app.model.models import CSVUpload, TransaksiResto, TransaksiRestoProcessed
 from io import StringIO
 from datetime import datetime
 

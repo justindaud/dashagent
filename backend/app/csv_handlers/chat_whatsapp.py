@@ -4,7 +4,7 @@ import phonenumbers
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from fastapi import UploadFile, HTTPException
-from app.models import CSVUpload, ChatWhatsapp, ChatWhatsappProcessed
+from app.model.models import CSVUpload, ChatWhatsapp, ChatWhatsappProcessed
 from io import StringIO
 from datetime import datetime
 
@@ -22,13 +22,14 @@ class ChatWhatsappHandler:
         return re.match(r"^\+?\d+$", number) is not None
     
     def strip_country_code(self, phone: str):
-        """Strip country code or 0 from phone number using user's proven logic"""
-        if phone.startswith("0") and phone != '0':
+        if phone == 0:
+            return ''
+
+        if phone.startswith("0"):
             return phone[1:]
         try:
             num = phonenumbers.parse(phone, None)
             if phonenumbers.is_valid_number(num):
-                # return f"{num.country_code}{num.national_number}"
                 return str(phone)
             else:
                 return ''
@@ -68,20 +69,20 @@ class ChatWhatsappHandler:
             
             df = df.dropna(subset=['Type'])
             df = df.replace("\t", "", regex=True)
-            df = df.replace("", None, regex=True)
             df = df.drop_duplicates()
 
-            # Find in column 'Chats' that are not starts with '+' then Listdown the 'Name'
-            group_chat_window = df[~df['Chats'].str.startswith('+', na=False)]
+            # Define groups you want to exclude
+            groups_to_exclude = ["Team Pulang", "PULANG - BM"]
+
+            # Filter out rows where Chats is one of the excluded groups
+            group_chat_window = df[df['Chats'].isin(groups_to_exclude)]
 
             # Find 'Name' inside the group chat window
             group_chat_window_names = group_chat_window['Name'].unique(),group_chat_window['Name'].count()
 
             # filter df Chat with group_chat_window to get guest_chat_window
-            guest_chat_window = df[~df['Name'].isin(group_chat_window_names[0])]
+            df = df[~df['Chats'].isin(group_chat_window_names[0])]
 
-            # drop guest_chat_window that contain group_chat_window_names in column 'Chats'
-            df = guest_chat_window[~guest_chat_window['Chats'].isin(group_chat_window_names[0])]
 
             # Filter out group chats and staff (approach user yang terbukti)
             if 'Chats' in df.columns:

@@ -2,7 +2,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from fastapi import UploadFile, HTTPException
-from app.models import CSVUpload, Reservasi, ReservasiProcessed
+from app.model.models import CSVUpload, Reservasi, ReservasiProcessed
 from io import StringIO
 
 import phonenumbers
@@ -12,9 +12,12 @@ class ReservasiHandler:
     """Handler for reservation CSV files"""
 
     def strip_country_code(self, phone: str):
-        if phone.startswith("0") and phone != '0':
-            # If starts with 0, assume Indonesia country code 62
+        if phone == '0':
+            return ''
+
+        if phone.startswith("0"):
             return f"+62{phone[1:]}"
+
         try:
             num = phonenumbers.parse(phone, None)
             if phonenumbers.is_valid_number(num):
@@ -46,12 +49,12 @@ class ReservasiHandler:
     
     def clean_birth_date(self, birth_date):
         """Clean birth date with validation"""
-        if pd.isna(birth_date) or birth_date == '':
+        if pd.isna(birth_date):
             return ''
         
         try:
             # Parse date
-            parsed_date = pd.to_datetime(birth_date, errors='coerce')
+            parsed_date = pd.to_datetime(birth_date, dayfirst=True, errors='coerce')
             if pd.notna(parsed_date):
                 # Filter out unreasonable dates
                 current_year = pd.Timestamp.now().year
@@ -131,12 +134,13 @@ class ReservasiHandler:
             
             # Filter out rows that contain summary data
             if 'Number' in df.columns:
-                # Remove rows where Number column is empty or contains summary data
-                df = df[df['Number'].notna() & (df['Number'] != '')]
-                
-                # Additional filter: remove rows that look like summary
-                df = df[~df['Number'].str.contains('Summary', case=False, na=False)]
-                df = df[~df['Number'].str.contains('Room Type', case=False, na=False)]
+                if df['Number'].notna().any() and (df['Number'] != '').any():
+                    # Remove rows where Number column is empty or contains summary data
+                    df = df[df['Number'].notna() & (df['Number'] != '')]
+                    
+                    # Additional filter: remove rows that look like summary
+                    df = df[~df['Number'].str.contains('Summary', case=False, na=False)]
+                    df = df[~df['Number'].str.contains('Room Type', case=False, na=False)]
                 
                 print(f"After filtering summary: {len(df)} records")
             
@@ -208,7 +212,7 @@ class ReservasiHandler:
             time_columns = ['C/I Time', 'C/O Time']
             for col in time_columns:
                 if col in df.columns:
-                    df[col] = pd.to_datetime(df[col], format='%H:%M', errors='coerce').dt.strftime('%H:%M')
+                    df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%H:%M')
             
             # Clean Mobile Phone
             if 'Mobile Phone' in df.columns:
@@ -225,7 +229,7 @@ class ReservasiHandler:
             for col in currency_columns:
                 if col in df.columns:
                     # Remove commas (thousand separators), keep dots (decimal separators)
-                    df[col] = df[col].astype(str).str.replace(',', '').apply(pd.to_numeric, errors='coerce').fillna(0)
+                    df[col] = df[col].astype(str).str.replace(',', '').apply(pd.to_numeric, errors='coerce').fillna(0).round(2)
 
             # [Trial] clear .0
             if 'Res No' in df.columns:
@@ -274,6 +278,7 @@ class ReservasiHandler:
                 
                 df = df.groupby(['Guest Name', 'Arrival', 'Depart', 'Room Number'], as_index=False).agg({
                     'In House Date': 'first',
+                    'Birth Date': 'first',
                     'Room Type': 'first',
                     'Arrangement': 'first',
                     'Guest No': 'first',
@@ -302,6 +307,12 @@ class ReservasiHandler:
                     'remarks': 'first',
                     'Mobile Phone': 'first',  # Note: CSV has double space
                     'Email': 'first',
+                    'Member No': 'first',
+                    'Member Type': 'first',
+                    'VIP': 'first',
+                    'Rate Code': 'first',
+                    'Compliment': 'first',
+                    'K-Card': 'first',
                 })
                 print(f"After groupby: {len(df)} records")
             
@@ -329,9 +340,11 @@ class ReservasiHandler:
                     if guest_id == 'nan' or pd.isna(row.get('Guest No')) or guest_id == '':
                         # Create unique guest_id based on available data
                         if guest_name and room_number:
-                            guest_id = f"{guest_name}_{room_number}_{arrival_date.strftime('%Y%m%d')}".replace(' ', '_').replace('-', '_')[:50]
+                            guest_id = f"{guest_name}_{room_number}_{arrival_date.replace('-', '')}".replace(' ', '_').replace('-', '_')[:50]
+                            # guest_id = f"{guest_name}_{room_number}_{arrival_date.strftime('%Y%m%d')}".replace(' ', '_').replace('-', '_')[:50]
                         elif guest_name:
-                            guest_id = f"{guest_name}_{arrival_date.strftime('%Y%m%d')}_{rows_processed}".replace(' ', '_')[:50]
+                            guest_id = f"{guest_name}_{arrival_date.replace('-', '')}_{rows_processed}".replace(' ', '_')[:50]
+                            # guest_id = f"{guest_name}_{arrival_date.strftime('%Y%m%d')}_{rows_processed}".replace(' ', '_')[:50]
                         else:
                             guest_id = f"GUEST_{csv_upload.id}_{rows_processed}"
                     
