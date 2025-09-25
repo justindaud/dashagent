@@ -68,7 +68,7 @@ export default function AuthPage() {
                   placeholder="JohnDoe"
                   required
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => setUsername(e.target.value.toUpperCase())}
                   disabled={isLoading}
                 />
               </div>
