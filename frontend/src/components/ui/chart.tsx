@@ -76,7 +76,7 @@ export function PieChartContainer({ data, dataKey, nameKey, title, description, 
 
   return (
     <div className={className}>
-      <div className="grid grid-cols-2">
+      <div className="grid md:grid-cols-2 ">
         <div>
           <div className="text-center mb-4">
             <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
