@@ -211,7 +211,7 @@ class DashboardAgent:
     async def decompose_prompt(self):
         with console.status("[bold cyan]Analyzing prompt...[/bold cyan]") as status:
         
-            result = Runner.run_streamed(prompt_agent, input=self.user_input)
+            result = Runner.run_streamed(prompt_agent, input=self.user_input, session=self.session)
             await stream_once(result, self.session_id, self.user_id)
 
             console.print(f"[debug] Result: {result}")
@@ -256,13 +256,12 @@ class DashboardAgent:
                 sql_session = SQLAlchemySession(session_id=self.session_id, engine=engine)
                 result = Runner.run_streamed(
                     experience_agent,
-                    "Anda akan membaca keseluruhan pecakapan, ...",
+                    "Anda akan membaca keseluruhan pecakapan, pahami konteks, buat insights sebagai list dari hal-hal yang perlu diingat, sebutkan table, fields, sql, cara membuat query, link, cara menentukan url, dsb",
                     session=sql_session
                 )
                 await stream_once(result, self.session_id, self.user_id)
 
                 console.print("[bold cyan]Updating memory...[/bold cyan]")
-
                 if result.final_output:
                     status_msg = await ingest_insights_async(
                         session_id=self.session_id,
