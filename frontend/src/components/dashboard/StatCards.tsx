@@ -10,14 +10,14 @@ interface StatCardsProps {
 
 const StatCard = ({ icon: Icon, title, value }: { icon: React.ElementType; title: string; value: string | number }) => (
   <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
-    <CardContent className="p-4 sm:p-5">
+    <CardContent className="p-2 sm:p-5">
       <div className="flex items-center">
         <div className="flex-shrink-0 bg-primary/10 text-primary p-3 rounded-lg">
-          <Icon className="w-6 h-6" />
+          <Icon className="w-5 h-5 md:w-6 md:h-6" />
         </div>
         <div className="ml-4">
-          <p className="text-sm font-medium text-gray-500 truncate">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
+          <p className="text-xs md:text-sm font-medium text-gray-500 truncate">{title}</p>
+          <p className="text-xl md:text-2xl font-bold text-gray-900">{value}</p>
         </div>
       </div>
     </CardContent>
