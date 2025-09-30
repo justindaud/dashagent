@@ -57,7 +57,7 @@ def make_sa_session(session_id: str) -> SQLAlchemySession:
     return SQLAlchemySession(
         session_id=session_id,
         engine=engine,
-        create_tables=True,
+        create_tables=False,
     )
 
 # Stream events
@@ -197,6 +197,26 @@ class DashboardAgent:
 
                 try:
                     q = f"""
+                        WITH latest AS (
+                            SELECT session_id
+                            FROM agent_sessions
+                            ORDER BY updated_at DESC
+                            LIMIT 1
+                            )
+                        SELECT s.session_id, x.last_insight_at
+                        FROM agent_sessions s
+                        LEFT JOIN LATERAL (
+                            SELECT MAX(si.created_at) AS last_insight_at
+                            FROM session_insights si
+                            WHERE si.session_id = s.session_id
+                        ) x ON TRUE
+                        WHERE s.session_id NOT IN (SELECT session_id FROM latest)
+                            AND (x.last_insight_at IS NULL OR x.last_insight_at < s.updated_at)
+                        ORDER BY s.updated_at ASC
+                        LIMIT 1;
+                        """
+                    '''    
+                    q = f"""
                         SELECT 
                             s.session_id,
                             si.session_id as analyzed_session
@@ -206,8 +226,8 @@ class DashboardAgent:
                             SELECT MAX(updated_at) FROM agent_sessions
                         )
                         AND si.session_id IS NULL
-                        """
-                    
+                        """    
+                    '''
                     console.print("[bold cyan]Fetching experience...[/bold cyan]")
 
                     async with engine.connect() as conn:
@@ -286,6 +306,7 @@ async def main():
             analyzer_task = asyncio.create_task(dashboard_agent.analyzer())
             memory_task = asyncio.create_task(dashboard_agent.memory_updater())
             await asyncio.gather(analyzer_task, memory_task)
+            #await memory_task
             
             # prompt_response = await decompose_task
 

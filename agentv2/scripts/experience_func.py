@@ -1,6 +1,10 @@
 import os
 from typing import Any, Dict, Optional, List
 from sqlalchemy import create_engine, text, func
+import openai
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def fetch_experience(
     *,
@@ -205,44 +209,73 @@ async def ingest_insights_async(
     async_engine=None,
 ) -> str:
     """
-    Upload experience to database using AsyncEngine.
+    Upload experience to database using AsyncEngine with embeddings.
     """
     from sqlalchemy.ext.asyncio import AsyncEngine
 
     if async_engine is None or not isinstance(async_engine, AsyncEngine):
         raise RuntimeError("ingest_insights_async requires a SQLAlchemy AsyncEngine passed as async_engine")
 
+    # Initialize OpenAI client for embeddings
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        return "Failed to store insights (async): OPENAI_API_KEY not set"
+    
+    client = openai.OpenAI(api_key=openai_api_key)
     experience_data: List[Dict[str, Any]] = []
 
+    # Helper function to generate embedding
+    def generate_embedding(text: str) -> str:
+        try:
+            response = client.embeddings.create(
+                model="text-embedding-3-small",
+                input=text
+            )
+            embedding_list = response.data[0].embedding
+            # Convert list to PostgreSQL VECTOR format string
+            return str(embedding_list)
+        except Exception as e:
+            print(f"Warning: Failed to generate embedding for text: {str(e)}")
+            return None
+
+    # Process insights with embeddings
     for insight in insights:
+        embedding = generate_embedding(insight)
         experience_data.append({
             "session_id": session_id,
             "user_id": user_id,
             "insight_type": "insight",
             "insight_content": insight,
+            "embedding": embedding
         })
 
+    # Process patterns with embeddings
     if patterns:
         for pattern in patterns:
+            embedding = generate_embedding(pattern)
             experience_data.append({
                 "session_id": session_id,
                 "user_id": user_id,
                 "insight_type": "pattern",
                 "insight_content": pattern,
+                "embedding": embedding
             })
 
+    # Process preferences with embeddings
     if preferences:
         for preference in preferences:
+            embedding = generate_embedding(preference)
             experience_data.append({
                 "session_id": session_id,
                 "user_id": user_id,
                 "insight_type": "preference",
                 "insight_content": preference,
+                "embedding": embedding
             })
 
     try:
         async with async_engine.begin() as conn:
-            # Ensure table exists
+            # Ensure table exists with embedding column
             await conn.execute(text(
                 """
                 CREATE TABLE IF NOT EXISTS session_insights (
@@ -251,17 +284,29 @@ async def ingest_insights_async(
                     user_id VARCHAR(255),
                     insight_type VARCHAR(50) NOT NULL,
                     insight_content TEXT NOT NULL,
+                    embedding VECTOR(1536),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             ))
 
+            # Create index for efficient similarity search if not exists
+            await conn.execute(text(
+                """
+                CREATE INDEX IF NOT EXISTS session_insights_embedding_idx 
+                ON session_insights 
+                USING ivfflat (embedding vector_cosine_ops) 
+                WITH (lists = 100)
+                """
+            ))
+
+            # Insert data with embeddings
             for data in experience_data:
                 await conn.execute(text(
                     """
                     INSERT INTO session_insights 
-                    (session_id, user_id, insight_type, insight_content, created_at)
-                    VALUES (:session_id, :user_id, :insight_type, :insight_content, CURRENT_TIMESTAMP)
+                    (session_id, user_id, insight_type, insight_content, embedding, created_at)
+                    VALUES (:session_id, :user_id, :insight_type, :insight_content, :embedding, CURRENT_TIMESTAMP)
                     """
                 ), data)
 

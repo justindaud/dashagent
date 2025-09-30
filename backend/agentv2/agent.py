@@ -211,7 +211,7 @@ class DashboardAgent:
     async def decompose_prompt(self):
         with console.status("[bold cyan]Analyzing prompt...[/bold cyan]") as status:
         
-            result = Runner.run_streamed(prompt_agent, input=self.user_input)
+            result = Runner.run_streamed(prompt_agent, input=self.user_input, session=self.session)
             await stream_once(result, self.session_id, self.user_id)
 
             console.print(f"[debug] Result: {result}")
@@ -252,33 +252,83 @@ class DashboardAgent:
 
     async def memory_updater(self):
         with trace("Updating memory", metadata={"session_id": self.session_id, "user_id": self.user_id}):
-            try:
-                sql_session = SQLAlchemySession(session_id=self.session_id, engine=engine)
-                result = Runner.run_streamed(
-                    experience_agent,
-                    "Anda akan membaca keseluruhan pecakapan, ...",
-                    session=sql_session
-                )
-                await stream_once(result, self.session_id, self.user_id)
+            with console.status("[bold cyan]Updating memory...[/bold cyan]") as status_msg:
 
-                console.print("[bold cyan]Updating memory...[/bold cyan]")
+                try:
+                    q = f"""
+                        WITH latest AS (
+                            SELECT session_id
+                            FROM agent_sessions
+                            ORDER BY updated_at DESC
+                            LIMIT 1
+                            )
+                        SELECT s.session_id, x.last_insight_at
+                        FROM agent_sessions s
+                        LEFT JOIN LATERAL (
+                            SELECT MAX(si.created_at) AS last_insight_at
+                            FROM session_insights si
+                            WHERE si.session_id = s.session_id
+                        ) x ON TRUE
+                        WHERE s.session_id NOT IN (SELECT session_id FROM latest)
+                            AND (x.last_insight_at IS NULL OR x.last_insight_at < s.updated_at)
+                        ORDER BY s.updated_at ASC
+                        LIMIT 1;
+                        """
+                    '''    
+                    q = f"""
+                        SELECT 
+                            s.session_id,
+                            si.session_id as analyzed_session
+                        FROM agent_sessions s
+                        LEFT JOIN session_insights si ON s.session_id = si.session_id
+                        WHERE s.updated_at = (
+                            SELECT MAX(updated_at) FROM agent_sessions
+                        )
+                        AND si.session_id IS NULL
+                        """    
+                    '''
+                    console.print("[bold cyan]Fetching experience...[/bold cyan]")
 
-                if result.final_output:
-                    status_msg = await ingest_insights_async(
-                        session_id=self.session_id,
-                        user_id=self.user_id,
-                        insights=getattr(result.final_output, "insights", []) or [],
-                        patterns=getattr(result.final_output, "patterns", []) or [],
-                        preferences=getattr(result.final_output, "preferences", []) or [],
-                        async_engine=engine,
+                    async with engine.connect() as conn:
+                        result = await conn.execute(text(q))
+                        row = result.fetchone()
+                    
+                    #experience = fetch_experience(limit=500)
+
+                    if not row:
+                        console.print("[yellow]No new sessions to analyze[/yellow]")
+                        return
+
+                    session_id_from_db, last_insight_at = row[0], row[1]
+                    console.print(f"[cyan]Picked session:[/cyan] {session_id_from_db} (last_insight_at={last_insight_at})")
+
+                    self.session_id = session_id_from_db
+
+                    sql_session = SQLAlchemySession(session_id=self.session_id, engine=engine)
+                    result = Runner.run_streamed(
+                        experience_agent,
+                        "Anda akan membaca keseluruhan pecakapan, pahami konteks, buat insights sebagai list dari hal-hal yang perlu diingat, sebutkan table, fields, sql, cara membuat query, link, cara menentukan url, dsb",
+                        session=sql_session
                     )
-                    console.print(f"[green]{status_msg}[/green]")
-                else:
-                    console.print("[yellow]No insights generated from experience agent[/yellow]")
-                
-                console.print("[bold cyan]Memory updated successfully[/bold cyan]")
-            except Exception as e:
-                console.print(f"[red]Error updating memory:[/red] {e}")
+                    await stream_once(result, self.session_id, self.user_id)
+
+                    console.print("[bold cyan]Updating memory...[/bold cyan]")
+                    if result.final_output:
+                        status_msg = await ingest_insights_async(
+                            session_id=self.session_id,
+                            user_id=self.user_id,
+                            insights=getattr(result.final_output, "insights", []) or [],
+                            patterns=getattr(result.final_output, "patterns", []) or [],
+                            preferences=getattr(result.final_output, "preferences", []) or [],
+                            async_engine=engine,
+                        )
+                        console.print(f"[green]{status_msg}[/green]")
+                    else:
+                        console.print("[yellow]No insights generated from experience agent[/yellow]")
+                    
+                    console.print("[bold cyan]Memory updated successfully[/bold cyan]")
+                except Exception as e:
+                    console.print(f"[red]Error updating memory:[/red] {e}")
 
     async def run_and_collect(session_id: str, user_id: str, user_input: str, user_role: Optional[str] = None, run_id: Optional[str] = None) -> Dict[str, Any]:
         run_id = run_id or uuid.uuid4().hex

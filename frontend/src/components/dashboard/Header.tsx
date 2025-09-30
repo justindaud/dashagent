@@ -1,8 +1,10 @@
 "use client";
-import { Upload, Bot, BarChart3, Users, Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useState } from "react";
 import Link from "next/link";
+import api from "@/lib/axios";
+import { Upload, Bot, BarChart3, Users, Menu, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   onUploadClick?: () => void;
@@ -10,88 +12,86 @@ interface HeaderProps {
 }
 
 export function Header({ onUploadClick, page }: HeaderProps) {
-  const renderNavLinks = (isMobile = false) => {
-    if (page === "dashboard") {
-      return (
-        <>
-          <Button onClick={onUploadClick} variant="outline" className="flex items-center gap-2 border-primary text-primary hover:text-primary">
-            <Upload className="w-5 h-5" />
-            <span className={isMobile ? "" : "hidden md:inline"}>Upload Data</span>
-          </Button>
-          <Link href="/users" passHref>
-            <Button variant="outline" className="flex items-center gap-2 border-primary text-primary hover:text-primary">
-              <Users className="w-5 h-5" />
-              <span className={isMobile ? "" : "hidden md:inline"}>Manage Users</span>
-            </Button>
-          </Link>
-          <Link href="/chat" passHref>
-            <Button variant="outline" className="flex items-center gap-2 border-primary text-primary hover:text-primary">
-              <Bot className="w-5 h-5" />
-              <span className={isMobile ? "" : "hidden md:inline"}>Chat with AI</span>
-            </Button>
-          </Link>
-        </>
-      );
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await api.post("/api/auth/logout");
+    } catch (error) {
+      console.error("Logout request failed, but proceeding with client-side cleanup:", error);
+    } finally {
+      localStorage.removeItem("isLoggedIn");
+      window.location.href = "/auth";
     }
-    return (
-      <Link href="/" passHref>
-        <Button variant="outline" className="flex items-center gap-2 border-primary text-primary hover:text-primary">
-          <BarChart3 className="w-5 h-5" />
-          <span className={isMobile ? "" : "hidden md:inline"}>Analytics Dashboard</span>
-        </Button>
-      </Link>
-    );
   };
 
-  const renderMobileMenu = () => {
-    const commonItemClass = "w-full justify-start gap-2";
-    if (page === "dashboard") {
-      return (
-        <>
-          <DropdownMenuItem onClick={onUploadClick} className={commonItemClass}>
-            <Upload className="w-5 h-5" /> Upload Data
-          </DropdownMenuItem>
-          <Link href="/users" passHref>
-            <DropdownMenuItem className={commonItemClass}>
-              <Users className="w-5 h-5" /> Manage Users
-            </DropdownMenuItem>
-          </Link>
-          <Link href="/chat" passHref>
-            <DropdownMenuItem className={commonItemClass}>
-              <Bot className="w-5 h-5" /> Chat with AI
-            </DropdownMenuItem>
-          </Link>
-        </>
-      );
-    }
-    return (
-      <Link href="/" passHref>
-        <DropdownMenuItem className={commonItemClass}>
-          <BarChart3 className="w-5 h-5" /> Analytics Dashboard
-        </DropdownMenuItem>
-      </Link>
-    );
-  };
+  const navLinks = [
+    { href: "/", icon: BarChart3, label: "Analytics Dashboard", page: ["users", "chat"] },
+    { href: "/users", icon: Users, label: "Manage Users", page: ["dashboard"] },
+    { href: "/chat", icon: Bot, label: "Chat with AI", page: ["dashboard"] },
+  ];
 
   return (
-    <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+    <header className="bg-white shadow-sm border-b">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <Link href="/" passHref>
-            <span className="text-2xl font-bold text-gray-900 no-underline cursor-pointer">DashAgent</span>
+          <Link href="/" className="text-2xl font-bold text-gray-900 no-underline">
+            DashAgent
           </Link>
 
-          <div className="hidden md:flex items-center gap-2 sm:gap-3">{renderNavLinks()}</div>
+          {/* Navigasi Desktop */}
+          <div className="hidden md:flex items-center gap-2">
+            {page === "dashboard" && (
+              <Button onClick={onUploadClick} variant="outline" className="flex items-center gap-2 text-primary hover:text-primary/80">
+                <Upload className="w-4 h-4" />
+                <span>Upload Data</span>
+              </Button>
+            )}
+            {navLinks
+              .filter((link) => link.page.includes(page))
+              .map((link) => (
+                <Link key={link.href} href={link.href} passHref>
+                  <Button variant="outline" className="flex items-center gap-2 text-primary hover:text-primary/80">
+                    <link.icon className="w-4 h-4" />
+                    <span>{link.label}</span>
+                  </Button>
+                </Link>
+              ))}
+            <Button onClick={handleLogout} variant="destructive" className="flex items-center gap-2 ml-2">
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
 
+          {/* Menu Hamburger Seluler */}
           <div className="md:hidden">
-            <DropdownMenu>
+            <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon">
-                  <Menu className="h-6 w-6" />
+                  <Menu className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {renderMobileMenu()}
+              <DropdownMenuContent align="end">
+                {page === "dashboard" && (
+                  <DropdownMenuItem onClick={onUploadClick}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    <span>Upload Data</span>
+                  </DropdownMenuItem>
+                )}
+                {navLinks
+                  .filter((link) => link.page.includes(page))
+                  .map((link) => (
+                    <Link key={link.href} href={link.href} passHref>
+                      <DropdownMenuItem>
+                        <link.icon className="mr-2 h-4 w-4" />
+                        <span>{link.label}</span>
+                      </DropdownMenuItem>
+                    </Link>
+                  ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Logout</span>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
