@@ -67,6 +67,24 @@ class ReservasiHandler:
         except:
             return ''
     
+    def get_room_type_desc(self, room_type: str) -> str:
+        """Helper function to determine room type description"""
+        if not room_type:
+            return ''
+        
+        room_type = str(room_type).strip().upper()
+        if room_type.startswith('D'):
+            return 'Deluxe'
+        elif room_type.startswith('E'):
+            return 'Executive Suite'
+        elif room_type.startswith('J'):
+            return 'Executive Suite'
+        elif room_type.startswith('FS'):
+            return 'Family Suite'
+        elif room_type.startswith('B'):
+            return 'Suite'
+        return ''
+
     async def process_csv(self, file: UploadFile, db: Session) -> dict:
         """
         Process reservation CSV file based on actual CSV structure
@@ -419,6 +437,7 @@ class ReservasiHandler:
                         existing_processed.guest_name = guest_name
                         existing_processed.room_number = room_number
                         existing_processed.room_type = str(row.get('Room Type', ''))
+                        existing_processed.room_type_desc = self.get_room_type_desc(row.get('Room Type', ''))
                         existing_processed.arrangement = str(row.get('Arrangement', ''))
                         existing_processed.in_house_date = str(row.get('In House Date', ''))
                         existing_processed.arrival_date = arrival_date
@@ -470,6 +489,7 @@ class ReservasiHandler:
                             guest_name=guest_name,
                             room_number=room_number,
                             room_type=str(row.get('Room Type', '')),
+                            room_type_desc=self.get_room_type_desc(row.get('Room Type', '')),
                             arrangement=str(row.get('Arrangement', '')),
                             in_house_date=str(row.get('In House Date', '')),
                             arrival_date=arrival_date,

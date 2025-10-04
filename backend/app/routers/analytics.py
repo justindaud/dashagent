@@ -4,8 +4,8 @@ from sqlalchemy import func, case, text, cast, Date
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
-from app.database import get_db
-from app.models import ReservasiProcessed
+from app.db.database import get_db
+from app.model.models import ReservasiProcessed
 
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -24,7 +24,7 @@ def get_aggregate(
     end: str = Query(..., description="End date YYYY-MM-DD (exclusive end boundary is handled by overlap check)"),
     group_by: str = Query("none", regex="^(none|segment|room_type|local_region|nationality|age_group)$"),
     segment_in: Optional[str] = Query(None, description="Comma-separated list"),
-    segment_not_in: Optional[str] = Query(None, description="Comma-separated list"),
+    # segment_not_in: Optional[str] = Query(None, description="Comma-separated list"),
     room_type_in: Optional[str] = Query(None, description="Comma-separated list"),
     local_region_in: Optional[str] = Query(None, description="Comma-separated list of cities/regions"),
     nationality_in: Optional[str] = Query(None, description="Comma-separated list"),
@@ -47,15 +47,15 @@ def get_aggregate(
 
         # Apply filters
         seg_in = parse_csv_list(segment_in)
-        seg_not_in = parse_csv_list(segment_not_in)
+        # seg_not_in = parse_csv_list(segment_not_in)
         rt_in = parse_csv_list(room_type_in)
         lr_in = parse_csv_list(local_region_in)
         nat_in = parse_csv_list(nationality_in)
 
         if seg_in:
             query = query.filter(ReservasiProcessed.segment.in_(seg_in))
-        if seg_not_in:
-            query = query.filter(~ReservasiProcessed.segment.in_(seg_not_in))
+        # if seg_not_in:
+        #     query = query.filter(~ReservasiProcessed.segment.in_(seg_not_in))
         if rt_in:
             query = query.filter(ReservasiProcessed.room_type.in_(rt_in))
         if lr_in:

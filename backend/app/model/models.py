@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey, Float, UniqueConstraint, Computed
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.sql.expression import text
 from app.db.database import Base
 
 
@@ -223,6 +224,7 @@ class ReservasiProcessed(Base):
     guest_name = Column(String(255))                # Combined First Name + Last Name
     room_number = Column(String(50))                # Room Number from CSV
     room_type = Column(String(50))                  # Room Type from CSV
+    room_type_desc = Column(String(50))             # Room Type Description
     arrangement = Column(String(50))                # Arrangement from CSV
     
     # Dates and times
@@ -284,10 +286,15 @@ class ChatWhatsappProcessed(Base):
     message_type = Column(String(50))  # Type from CSV
     message_date = Column(DateTime)    # Date from CSV
     message = Column(Text)
+    # Kolom generated selalu hasil dari md5(message)
+    message_hash = Column(
+        String(32),
+        Computed("md5(message::text)", persisted=True)  # STORED di PostgreSQL
+    )
     last_updated = Column(DateTime(timezone=True), default=func.now())
     last_upload_id = Column(Integer, ForeignKey("csv_uploads.id"))
     
-    __table_args__ = (UniqueConstraint('phone_number', 'message_date', 'message', name='_phone_date_message_uc'),)
+    __table_args__ = (UniqueConstraint('phone_number', 'message_date', 'message_hash', name='_phone_date_message_uc'),)
 
 class TransaksiRestoProcessed(Base):
     __tablename__ = "transaksi_resto_processed"

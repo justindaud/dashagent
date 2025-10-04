@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
-from app.database import get_db
+from app.db.database import get_db
 
-from app.models import ProfileTamu, Reservasi, ChatWhatsapp, TransaksiResto, ProfileTamuProcessed, ReservasiProcessed, ChatWhatsappProcessed, TransaksiRestoProcessed
+from app.model.models import ProfileTamu, Reservasi, ChatWhatsapp, TransaksiResto, ProfileTamuProcessed, ReservasiProcessed, ChatWhatsappProcessed, TransaksiRestoProcessed
 from sqlalchemy import func, cast, Date, and_
 from datetime import datetime, timedelta
 
@@ -35,13 +35,14 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
             "last_updated": datetime.now().isoformat()
         }
     except Exception as e:
+        # print(e) # For debugging
         raise HTTPException(status_code=500, detail=f"Error fetching dashboard stats: {str(e)}")
 
 @router.get("/recent-uploads")
 async def get_recent_uploads(db: Session = Depends(get_db), limit: int = 10):
     """Get recent CSV uploads"""
     try:
-        from app.models import CSVUpload
+        from app.model.models import CSVUpload
         
         recent_uploads = db.query(CSVUpload).order_by(CSVUpload.created_at.desc()).limit(limit).all()
         
@@ -88,7 +89,7 @@ async def get_data_preview(
 async def delete_csv_upload(upload_id: int, db: Session = Depends(get_db)):
     """Delete CSV upload and rollback affected Processed data"""
     try:
-        from app.models import CSVUpload
+        from app.model.models import CSVUpload
         
         # Get the upload record
         upload = db.query(CSVUpload).filter(CSVUpload.id == upload_id).first()

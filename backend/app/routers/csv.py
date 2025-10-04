@@ -1,10 +1,13 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
-from app.database import get_db
+from app.db.database import get_db
 from app.csv_handlers import get_csv_handler
-from app.models import CSVUpload
+from app.model.models import CSVUpload
 from typing import List
 import logging
+
+from app.middlewares.middleware import get_current_user
+from app.model.user import User
 
 router = APIRouter(prefix="/csv", tags=["csv"])
 
@@ -33,7 +36,8 @@ async def get_csv_info():
 async def upload_csv(
     file: UploadFile = File(...),
     file_type: str = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    # current_user: User = Depends(get_current_user)
 ):
     """
     Upload CSV file for processing
@@ -69,6 +73,7 @@ async def upload_csv(
         # Process CSV with handler
         logger.info(f"Processing CSV with handler: {type(handler).__name__}")
         result = await handler.process_csv(file, db)
+        # result = await handler.process_csv(file, db, uploaded_by=str(current_user.user_id))
         
         logger.info(f"CSV uploaded successfully: {file.filename}, type: {file_type}, rows: {result['rows_processed']}")
         

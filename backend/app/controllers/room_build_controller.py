@@ -23,6 +23,8 @@ def get_room_by_id_controller(db: Session, room_build_id: str):
 def list_room_builds_controller(db: Session) -> List[RoomBuild]:
     return repo.list_room_builds(db)
 
+def get_room_count_until_date_controller(db: Session, target_date: date) -> List[RoomBuild]:
+    return repo.get_room_count_until_date(db, target_date)
 
 def update_room_build_controller(
     db: Session,
@@ -47,3 +49,15 @@ def update_room_build_controller(
         room_build.room_count = room_count.strip()
 
     return repo.update_room_build(db, room_build)
+
+def register_bulk_room_build_controller(db: Session, rooms_data: list[dict]):
+    room_builds = []
+    for room_data in rooms_data:
+        room_build = RoomBuild(
+            built_date=room_data["built_date"],
+            room_count=room_data["room_count"],
+            room_type=room_data["room_type"]
+        )
+        room_builds.append(room_build)
+    
+    return repo.add_bulk_room_build(db, room_builds)
