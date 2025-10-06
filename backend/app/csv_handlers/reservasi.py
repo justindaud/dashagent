@@ -85,7 +85,7 @@ class ReservasiHandler:
             return 'Suite'
         return ''
 
-    async def process_csv(self, file: UploadFile, db: Session) -> dict:
+    async def process_csv(self, file: UploadFile, db: Session, user_id: str) -> dict:
         """
         Process reservation CSV file based on actual CSV structure
         Expected columns: Number, In House Date, Room Number, Room Type, Guest No, First Name, Last Name, 
@@ -174,8 +174,9 @@ class ReservasiHandler:
             csv_upload = CSVUpload(
                 filename=file.filename,
                 file_type="reservasi",
-                status="processing"
-            )
+                status="processing",
+                uploaded_by=user_id
+            )  
             db.add(csv_upload)
             db.commit()
             db.refresh(csv_upload)

@@ -183,7 +183,7 @@ class ProfileTamuHandler:
         except:
             return ''
     
-    async def process_csv(self, file: UploadFile, db: Session) -> dict:
+    async def process_csv(self, file: UploadFile, db: Session, user_id: str) -> dict:
         """
         Process profile tamu CSV file using user's proven preprocessing logic
         Expected columns: Name, Guest No, Phone, Mobile No., Email, Address, Birth Date, Occupation, City, Country
@@ -252,7 +252,8 @@ class ProfileTamuHandler:
             csv_upload = CSVUpload(
                 filename=file.filename,
                 file_type="profile_tamu",
-                status="processing"
+                status="processing",
+                uploaded_by=user_id
             )
             db.add(csv_upload)
             db.commit()

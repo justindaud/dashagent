@@ -36,7 +36,7 @@ class ChatWhatsappHandler:
         except:
             return ''
     
-    async def process_csv(self, file: UploadFile, db: Session) -> dict:
+    async def process_csv(self, file: UploadFile, db: Session, user_id: str) -> dict:
         """
         Process WhatsApp chat CSV file based on actual CSV structure
         Expected columns: Chats,Type,Date,Name,Content
@@ -59,7 +59,8 @@ class ChatWhatsappHandler:
                 csv_upload = CSVUpload(
                     filename=file.filename,
                     file_type="chat_whatsapp",
-                    status="processing"
+                    status="processing",
+                    uploaded_by=user_id
                 )
                 db.add(csv_upload)
                 db.commit()

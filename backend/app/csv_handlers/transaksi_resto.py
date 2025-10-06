@@ -10,7 +10,7 @@ from datetime import datetime
 class TransaksiRestoHandler:
     """Handler for transaksi resto CSV files"""
     
-    async def process_csv(self, file: UploadFile, db: Session) -> dict:
+    async def process_csv(self, file: UploadFile, db: Session, user_id: str) -> dict:
         """
         Process transaksi resto CSV file
         Expected columns: transaction_id, guest_id, item_name, quantity, price, total_amount, timestamp

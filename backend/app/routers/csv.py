@@ -37,7 +37,7 @@ async def upload_csv(
     file: UploadFile = File(...),
     file_type: str = Form(None),
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Upload CSV file for processing
@@ -72,7 +72,7 @@ async def upload_csv(
         
         # Process CSV with handler
         logger.info(f"Processing CSV with handler: {type(handler).__name__}")
-        result = await handler.process_csv(file, db)
+        result = await handler.process_csv(file, db, user_id=str(current_user.user_id))
         # result = await handler.process_csv(file, db, uploaded_by=str(current_user.user_id))
         
         logger.info(f"CSV uploaded successfully: {file.filename}, type: {file_type}, rows: {result['rows_processed']}")
