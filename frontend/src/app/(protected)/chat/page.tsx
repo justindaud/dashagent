@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bot, User, Plus, MessageSquare, Menu, Send, Edit, Check, Loader2 } from "lucide-react";
+import TextareaAutosize from "react-textarea-autosize";
 
 interface Message {
   role: "user" | "assistant";
@@ -154,6 +155,7 @@ export default function ChatPage() {
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -270,6 +272,13 @@ export default function ChatPage() {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      formRef.current?.requestSubmit();
+    }
+  };
+
   const handleStartEdit = (id: string, currentTitle: string) => {
     setEditingConversationId(id);
     setEditingTitle(currentTitle);
@@ -293,7 +302,10 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      <Header page="chat" />
+      <div className="hidden md:block">
+        <Header page="chat" />
+      </div>
+
       <div className="flex flex-1 overflow-hidden">
         <div className="hidden md:block w-72 bg-white border-r">
           <ConversationSidebar
@@ -311,8 +323,7 @@ export default function ChatPage() {
         </div>
         <main className="flex-1 flex flex-col">
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
-            <div className="md:hidden flex items-center justify-between pb-2 border-b">
-              <h2 className="text-lg font-semibold truncate pr-4">{activeConversation?.title || "Chat"}</h2>
+            <div className="md:hidden flex items-center gap-2 pb-2 border-b">
               <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
                 <SheetTrigger asChild>
                   <Button variant="outline" size="icon">
@@ -334,6 +345,7 @@ export default function ChatPage() {
                   />
                 </SheetContent>
               </Sheet>
+              <h2 className="text-lg font-semibold truncate pr-4">{activeConversation?.title || "Chat"}</h2>
             </div>
             {activeConversation?.isLoadingMessages ? (
               <div className="flex justify-center items-center h-full">
@@ -378,17 +390,19 @@ export default function ChatPage() {
             )}
             <div ref={messagesEndRef} />
           </div>
-          <div className="p-4 md:p-6 border-t bg-white">
-            <form onSubmit={handleChatSubmit} className="flex gap-2 items-center max-w-4xl mx-auto">
-              <Input
-                type="text"
+          <div className="p-4 md:p-6">
+            <form ref={formRef} onSubmit={handleChatSubmit} className="flex gap-2 items-end max-w-4xl mx-auto">
+              <TextareaAutosize
                 value={chatMessage}
                 onChange={(e) => setChatMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder="Ask about revenue, occupancy, guest segments..."
-                className="flex-1"
+                className="flex-1 resize-none rounded-lg border border-gray-300 bg-background px-4 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                minRows={1}
+                maxRows={5}
                 disabled={isLoadingReply}
               />
-              <Button type="submit" disabled={isLoadingReply || !chatMessage.trim()}>
+              <Button type="submit" size="icon" className="flex-shrink-0" disabled={isLoadingReply || !chatMessage.trim()}>
                 <Send className="h-4 w-4" />
               </Button>
             </form>
