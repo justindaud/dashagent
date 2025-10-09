@@ -73,6 +73,7 @@ ormsgpack==1.10.0
 packaging==25.0
 pandas==2.3.2
 passlib==1.7.4
+pgvector==0.4.1
 phonenumbers==9.0.13
 pillow==11.3.0
 primp==0.15.0
