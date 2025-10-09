@@ -4,8 +4,8 @@ from fastapi.responses import Response
 from app.config.settings import settings
 
 def set_auth_cookie(resp: Response, token: str) -> None:
-    max_age = settings.JWT_EXPIRATION_HOURS * 3600
-    expires = datetime.now(timezone.utc) + timedelta(seconds=max_age)
+    max_age = settings.JWT_EXPIRATION_DAYS * 86400
+    expires = datetime.now(timezone.utc) + timedelta(days=settings.JWT_EXPIRATION_DAYS)
     resp.set_cookie(
         key=settings.COOKIE_NAME,
         value=token,

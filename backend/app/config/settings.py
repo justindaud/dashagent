@@ -17,7 +17,7 @@ class Settings(BaseModel):
 
     # Security
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
-    JWT_EXPIRATION_HOURS: int = int(os.getenv("JWT_EXPIRATION_HOURS"))
+    JWT_EXPIRATION_DAYS: int = int(os.getenv("JWT_EXPIRATION_DAYS"))
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     BCRYPT_COST: int = int(os.getenv("BCRYPT_COST"))
     PASSWORD_PEPPER: str = os.getenv("PASSWORD_PEPPER")

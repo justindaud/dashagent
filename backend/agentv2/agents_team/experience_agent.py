@@ -28,7 +28,7 @@ Sehingga search bisa melakukan pencarian informasi yang tepat.
 
 experience_agent = Agent(
     name="Experience Agent",
-    model="gpt-4o-mini",
+    model="gpt-4.1",
     instructions=EXPERIENCE_PROMPT,
     output_type=AgentOutputSchema(ExperienceDigest)
 )
