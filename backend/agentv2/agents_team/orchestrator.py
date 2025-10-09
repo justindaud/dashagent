@@ -1,6 +1,7 @@
 from agents import Agent
 from agentv2.agents_team.analyst_agent import analyst_agent
 from agentv2.agents_team.search_agent import search_agent
+from agentv2.agents_tools.sematicsearch_tool import search_insights_semantic
 
 ORCHESTRATOR_PROMPT = """
     Anda adalah intelligent orchestrator untuk sistem multi-agent.
@@ -27,7 +28,7 @@ ORCHESTRATOR_PROMPT = """
 
 orchestrator = Agent(
     name="Orchestrator",
-    model="gpt-4o-mini",
+    model="gpt-4.1",
     instructions=ORCHESTRATOR_PROMPT,
     tools=[
 
@@ -39,5 +40,6 @@ orchestrator = Agent(
             tool_name="SearchAgent",
             tool_description="Melakukan pencarian informasi di web dan menganalisis konten yang ditemukan"
         ),
+        search_insights_semantic
     ]
 )
