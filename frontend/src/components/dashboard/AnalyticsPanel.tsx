@@ -6,6 +6,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { PieChartContainer } from "@/components/ui/chart";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { DimensionOptions, GroupBy, PanelState } from "@/lib/types";
@@ -157,25 +158,31 @@ export function AnalyticsPanel({
               {/* Top N Input */}
               <div className="space-y-2">
                 <label className="text-sm text-gray-600 font-medium">Top N</label>
-                <input
+                <Input
                   type="number"
                   min={1}
                   max={50}
-                  value={state.topN || 6}
-                  onChange={(e) => handleStateChange("topN", Number(e.target.value))}
-                  className="w-full border rounded px-2 py-1 mt-1 hover:border-primary"
+                  value={state.topN ? state.topN : ""}
+                  placeholder="0"
+                  onChange={(e) => {
+                    handleStateChange("topN", Number(e.target.value));
+                  }}
+                  className="w-full hover:border-primary"
                 />
               </div>
 
               {/* Total Rooms Input */}
               <div className="space-y-2">
                 <label className="text-sm text-gray-600 font-medium">Total Rooms</label>
-                <input
+                <Input
                   type="number"
                   min={1}
-                  value={state.totalRooms}
-                  onChange={(e) => handleStateChange("totalRooms", Number(e.target.value))}
-                  className="w-full border rounded px-2 py-1 mt-1 hover:border-primary"
+                  value={state.totalRooms ? state.totalRooms : ""}
+                  placeholder="0"
+                  onChange={(e) => {
+                    handleStateChange("totalRooms", Number(e.target.value));
+                  }}
+                  className="w-full hover:border-primary"
                 />
               </div>
             </div>

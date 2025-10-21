@@ -99,7 +99,7 @@ export function PieChartContainer({ data, dataKey, nameKey, title, description, 
                 <div key={index} className="flex justify-between items-center text-sm">
                   <span className="text-gray-600">{item[nameKey] as string}</span>
                   <span className="font-medium">
-                    {value.toLocaleString()} ({percentage}%)
+                    {Math.round(value).toLocaleString()} ({percentage}%)
                   </span>
                 </div>
               );
