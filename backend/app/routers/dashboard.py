@@ -78,7 +78,7 @@ async def get_data_preview(
             return [{"id": item.id, "phone_number": item.phone_number, "message": item.message[:50]} for item in data]
         elif data_type == "transactions":
             data = db.query(TransaksiRestoProcessed).limit(limit).all()
-            return [{"id": item.id, "transaction_id": item.transaction_id, "total_amount": item.total_amount} for item in data]
+            return [{"id": item.id, "bill_number": item.bill_number, "guest_name": item.guest_name, "sales": item.sales} for item in data]
         else:
             raise HTTPException(status_code=400, detail="Invalid data type")
     except Exception as e:
