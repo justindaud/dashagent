@@ -177,13 +177,31 @@ class TransaksiResto(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     csv_upload_id = Column(Integer, ForeignKey("csv_uploads.id"))
-    transaction_id = Column(String(50), index=True)
-    guest_id = Column(String(50), index=True)
-    item_name = Column(String(255))
-    quantity = Column(Integer)
-    price = Column(Integer)  # in cents
-    total_amount = Column(Integer)  # in cents
-    timestamp = Column(DateTime)
+    
+    # Core transaction fields
+    bill_number = Column(String(50), index=True)             # Bill Number
+    article_number = Column(String(50))                      # Article Number
+    guest_name = Column(String(255), index=True)             # Guest Name
+    item_name = Column(String(255))                          # Description
+    quantity = Column(Integer)                               # Quantity
+    sales = Column(Integer)                                  # Sales (in cents)
+    payment = Column(Integer)                                # Payment (in cents)
+    
+    # Transaction details (Raw data from CSV)
+    outlet = Column(String(50))                              # Outlet
+    table_number = Column(Integer)                           # Table Number
+    posting_id = Column(String(50))                          # Posting ID
+    reservation_number = Column(String(50))                  # Reservation Number
+    travel_agent_name = Column(String(255))                  # Travel Agent / Reserve Name
+    
+    # Timestamps (Raw data from CSV)
+    transaction_date = Column(DateTime)                      # Date
+    start_time = Column(String(20))                          # Start Time
+    close_time = Column(String(20))                          # Close Time
+    time = Column(String(20))                                # Time
+    timestamp = Column(DateTime)                             # For compatibility
+    
+    # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -192,8 +210,7 @@ class TransaksiResto(Base):
     
     # Unique constraint untuk mencegah duplicate
     __table_args__ = (
-        # Composite unique key: transaction_id + guest_id + timestamp
-        # Jika ada transaksi dengan ID + guest + timestamp yang sama, akan dianggap duplicate
+        UniqueConstraint('bill_number', 'article_number', 'guest_name', 'transaction_date', name='_raw_bill_article_guest_date_uc'),
     )
 
 # ===== PROCESSED TABLES (untuk single source of truth) =====
@@ -305,14 +322,42 @@ class TransaksiRestoProcessed(Base):
     __tablename__ = "transaksi_resto_processed"
     
     id = Column(Integer, primary_key=True, index=True)
-    transaction_id = Column(String(50))
-    guest_id = Column(String(50))
-    item_name = Column(String(255))
-    quantity = Column(Integer)
-    price = Column(Integer)  # in cents
-    total_amount = Column(Integer)  # in cents
-    timestamp = Column(DateTime)
+    
+    # Core transaction fields
+    bill_number = Column(String(50), index=True)             # Bill Number
+    article_number = Column(String(50))                      # Article Number  
+    guest_name = Column(String(255), index=True)             # Guest Name
+    item_name = Column(String(255))                          # Description
+    quantity = Column(Integer)                               # Quantity
+    sales = Column(Integer)                                  # Sales (in cents)
+    payment = Column(Integer)                                # Payment (in cents)
+    
+    # Classification fields
+    article_category = Column(String(50))                    # Article (Food/Beverages/etc)
+    article_subcategory = Column(String(100))                # Subarticle (Coffee/Pizza/etc)
+    outlet = Column(String(50))                              # Outlet (Restaurant & Bar/Room Service/Banquet)
+    
+    # Transaction details
+    table_number = Column(Integer)                           # Table Number
+    posting_id = Column(String(50))                          # Posting ID
+    reservation_number = Column(String(50))                  # Reservation Number
+    travel_agent_name = Column(String(255))                  # Travel Agent / Reserve Name
+    prev_bill_number = Column(String(50))                    # Previous Bill Number (before consolidation)
+    
+    # Timestamps
+    transaction_date = Column(DateTime)                      # Date
+    start_time = Column(String(20))                          # Start Time
+    close_time = Column(String(20))                          # Close Time
+    time = Column(String(20))                                # Time
+    timestamp = Column(DateTime)                             # For compatibility
+    
+    # Financial calculations
+    bill_discount = Column(Float, default=0.0)               # Bill Discount
+    bill_compliment = Column(Float, default=0.0)             # Bill Compliment  
+    total_deduction = Column(Float, default=0.0)             # Total Deduction
+    
+    # Metadata
     last_updated = Column(DateTime(timezone=True), default=func.now())
     last_upload_id = Column(Integer, ForeignKey("csv_uploads.id"))
     
-    __table_args__ = (UniqueConstraint('transaction_id', 'guest_id', 'timestamp', name='_transaction_guest_time_uc'),)
+    __table_args__ = (UniqueConstraint('bill_number', 'article_number', 'guest_name', 'transaction_date', name='_bill_article_guest_date_uc'),)
