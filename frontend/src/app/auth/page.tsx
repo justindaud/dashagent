@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -52,13 +53,13 @@ export default function AuthPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       {/* Card Header */}
       <Card className="w-full max-w-sm">
-        <form onSubmit={handleLogin}>
-          <CardHeader>
-            <CardTitle>Login to DashAgent</CardTitle>
-            <CardDescription>Enter your username below to login to your account</CardDescription>
-            {error && <p className="mt-2 text-sm font-medium text-red-500">{error}</p>}
-          </CardHeader>
-          <CardContent>
+        <CardHeader>
+          <CardTitle>Login to DashAgent</CardTitle>
+          <CardDescription>Enter your username below to login to your account</CardDescription>
+          {error && <p className="mt-2 text-sm font-medium text-red-500">{error}</p>}
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
                 <Label htmlFor="username">Username</Label>
@@ -74,16 +75,14 @@ export default function AuthPage() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
+                <PasswordInput id="password" placeholder="******" required value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Logging in..." : "Login"}
+              </Button>
             </div>
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Logging in..." : "Login"}
-            </Button>
-          </CardFooter>
-        </form>
+          </form>
+        </CardContent>
       </Card>
     </div>
   );
