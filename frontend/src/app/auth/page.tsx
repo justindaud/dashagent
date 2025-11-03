@@ -69,13 +69,19 @@ export default function AuthPage() {
                   placeholder="JohnDoe"
                   required
                   value={username}
-                  onChange={(e) => setUsername(e.target.value.toUpperCase())}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value.toUpperCase())}
                   disabled={isLoading}
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="password">Password</Label>
-                <PasswordInput id="password" placeholder="******" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                <PasswordInput
+                  id="password"
+                  placeholder="******"
+                  required
+                  value={password}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Logging in..." : "Login"}
