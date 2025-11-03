@@ -156,3 +156,6 @@ Dockerfile.dev
 docker-compose.override.yml
 
 *.pdf
+
+# Next.js build output
+/.next/
