@@ -238,9 +238,9 @@ export default function ChatPage() {
         </div>
 
         <main className="flex-1 flex flex-col ">
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl w-full mx-auto">
+          <div className="flex-1 overflow-y-auto px-4 pb-4 md:p-6 space-y-6 max-w-4xl w-full mx-auto hide-scrollbar">
             {/* === Mobile Header & Sidebar === */}
-            <div className="md:hidden flex items-center gap-2 pb-2 border-b">
+            <div className="md:hidden flex items-center gap-2 py-2 border-b sticky top-0 bg-white z-10">
               <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
                 <SheetTrigger asChild>
                   <Button variant="outline" size="icon">
