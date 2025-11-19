@@ -115,15 +115,33 @@ export function UploadModal({ isOpen, onOpenChange, onUploadSuccess }: UploadMod
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md md:max-w-2xl lg:max-w-4xl max-h-[90vh] flex flex-col">
+      <Dialog
+        open={isOpen}
+        onOpenChange={(val) => {
+          if (uploading && !val) return;
+          onOpenChange(val);
+        }}
+      >
+        <DialogContent
+          className={`max-w-md md:max-w-2xl lg:max-w-4xl max-h-[90vh] flex flex-col ${uploading ? "[&>button]:hidden" : ""}`}
+          onInteractOutside={(e) => {
+            if (uploading) {
+              e.preventDefault();
+            }
+          }}
+          onEscapeKeyDown={(e) => {
+            if (uploading) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5" />
+              {uploading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" /> : <Upload className="w-5 h-5" />}
               Data Upload Manager
             </DialogTitle>
+            {uploading && <p className="text-sm text-muted-foreground text-red-500 font-medium mt-1">Uploading file...</p>}
           </DialogHeader>
-
           <div className="flex-grow overflow-y-auto pr-2 space-y-6 p-1">
             {/* Area Upload */}
             <div>
