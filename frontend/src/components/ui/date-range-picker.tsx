@@ -60,7 +60,6 @@ export function DateRangePicker({ dateRange, onDateRangeChange, className, place
             numberOfMonths={1}
             month={currentMonth}
             onMonthChange={setCurrentMonth}
-            // Menonaktifkan header bawaan kalender
             showOutsideDays={false}
             captionLayout="dropdown"
             className="[&_[data-description]]:hidden"

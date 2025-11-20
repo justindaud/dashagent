@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 import { Upload, Trash2 } from "lucide-react";
 import { RecentUpload } from "@/lib/types";
 
@@ -32,7 +31,6 @@ export function UploadModal({ isOpen, onOpenChange, onUploadSuccess }: UploadMod
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFileType, setSelectedFileType] = useState<string>("profile_tamu");
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [deletingUploadId, setDeletingUploadId] = useState<number | null>(null);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -66,7 +64,6 @@ export function UploadModal({ isOpen, onOpenChange, onUploadSuccess }: UploadMod
   const handleFileUpload = async () => {
     if (!selectedFile) return;
     setUploading(true);
-    setUploadProgress(0);
     setUploadMessage(null);
     const formData = new FormData();
     formData.append("file", selectedFile);
@@ -76,12 +73,6 @@ export function UploadModal({ isOpen, onOpenChange, onUploadSuccess }: UploadMod
       const response = await axios.post(`${API_BASE}/csv/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
         withCredentials: true,
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(percentCompleted);
-          }
-        },
       });
       setUploadMessage({ type: "success", text: `Upload success! ${response.data.rows_processed} rows processed.` });
       setSelectedFile(null);
@@ -171,8 +162,7 @@ export function UploadModal({ isOpen, onOpenChange, onUploadSuccess }: UploadMod
                     <p className="text-sm text-gray-600">Selected: {selectedFile.name}</p>
                     {uploading ? (
                       <div className="mt-2 space-y-2">
-                        <Progress value={uploadProgress} className="w-full" />
-                        <p className="text-sm text-primary">{uploadProgress}%</p>
+                        <p className="text-sm text-primary">Uploading File...</p>
                       </div>
                     ) : (
                       <Button onClick={handleFileUpload} disabled={uploading} className="mt-2">
