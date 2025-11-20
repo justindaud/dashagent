@@ -1,6 +1,6 @@
 set -euo pipefail
 
-CONNECT_URL=${CONNECT_URL:-http://194.233.69.219:8083}
+CONNECT_URL=${CONNECT_URL:-http://localhost:8083}
 
 echo "Registering Debezium Postgres source..."
 curl -s -X PUT "$CONNECT_URL/connectors/debezium-postgres-source/config" \

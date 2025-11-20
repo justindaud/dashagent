@@ -1,20 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey, Float, UniqueConstraint, Computed
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.sql.expression import text
 from app.db.database import Base
-
-
-# class User(Base):
-#     __tablename__ = "users"
-    
-#     id = Column(Integer, primary_key=True, index=True)
-#     username = Column(String(50), unique=True, index=True, nullable=False)
-#     email = Column(String(100), unique=True, index=True, nullable=False)
-#     hashed_password = Column(String(255), nullable=False)
-#     role = Column(String(20), default="viewer")  # admin, manager, viewer
-#     is_active = Column(Boolean, default=True)
-#     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
 
 class CSVUpload(Base):
     __tablename__ = "csv_uploads"
@@ -22,7 +10,7 @@ class CSVUpload(Base):
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String(255), nullable=False)
     file_type = Column(String(50), nullable=False)  # profile_tamu, reservasi, etc
-    uploaded_by = Column(Integer, ForeignKey("users.user_id"))
+    uploaded_by = Column(String(36), ForeignKey("users.user_id"))
     status = Column(String(20), default="processing")  # processing, completed, failed
     rows_processed = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
@@ -93,14 +81,14 @@ class Reservasi(Base):
     
     # Dates and times
     in_house_date = Column(String(20))              # In House Date from CSV
-    arrival_date = Column(String(20))               # Arrival from CSV
-    depart_date = Column(String(20))                # Depart from CSV
+    arrival_date = Column(String(20))               # Arrival from CSV | YYYY-MM-DD format
+    depart_date = Column(String(20))                # Depart from CSV | YYYY-MM-DD format
     check_in_time = Column(String(20))              # C/I Time from CSV
     check_out_time = Column(String(20))             # C/O Time from CSV
     created_date = Column(String(20))               # Created from CSV
     
     # Guest details
-    birth_date = Column(String(20))                 # Birth Date from CSV
+    birth_date = Column(String(20))                 # Birth Date from CSV | YYYY-MM-DD format
     age = Column(Integer)                           # Age from CSV
     member_no = Column(String(50))                  # Member No from CSV
     member_type = Column(String(50))                # Member Type from CSV
@@ -177,31 +165,13 @@ class TransaksiResto(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     csv_upload_id = Column(Integer, ForeignKey("csv_uploads.id"))
-    
-    # Core transaction fields
-    bill_number = Column(String(50), index=True)             # Bill Number
-    article_number = Column(String(50))                      # Article Number
-    guest_name = Column(String(255), index=True)             # Guest Name
-    item_name = Column(String(255))                          # Description
-    quantity = Column(Integer)                               # Quantity
-    sales = Column(Integer)                                  # Sales (in cents)
-    payment = Column(Integer)                                # Payment (in cents)
-    
-    # Transaction details (Raw data from CSV)
-    outlet = Column(String(50))                              # Outlet
-    table_number = Column(Integer)                           # Table Number
-    posting_id = Column(String(50))                          # Posting ID
-    reservation_number = Column(String(50))                  # Reservation Number
-    travel_agent_name = Column(String(255))                  # Travel Agent / Reserve Name
-    
-    # Timestamps (Raw data from CSV)
-    transaction_date = Column(DateTime)                      # Date
-    start_time = Column(String(20))                          # Start Time
-    close_time = Column(String(20))                          # Close Time
-    time = Column(String(20))                                # Time
-    timestamp = Column(DateTime)                             # For compatibility
-    
-    # Metadata
+    transaction_id = Column(String(50), index=True)
+    guest_id = Column(String(50), index=True)
+    item_name = Column(String(255))
+    quantity = Column(Integer)
+    price = Column(Integer)  # in cents
+    total_amount = Column(Integer)  # in cents
+    timestamp = Column(DateTime)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -210,7 +180,8 @@ class TransaksiResto(Base):
     
     # Unique constraint untuk mencegah duplicate
     __table_args__ = (
-        UniqueConstraint('bill_number', 'article_number', 'guest_name', 'transaction_date', name='_raw_bill_article_guest_date_uc'),
+        # Composite unique key: transaction_id + guest_id + timestamp
+        # Jika ada transaksi dengan ID + guest + timestamp yang sama, akan dianggap duplicate
     )
 
 # ===== PROCESSED TABLES (untuk single source of truth) =====
@@ -252,12 +223,13 @@ class ReservasiProcessed(Base):
     guest_name = Column(String(255))                # Combined First Name + Last Name
     room_number = Column(String(50))                # Room Number from CSV
     room_type = Column(String(50))                  # Room Type from CSV
+    room_type_desc = Column(String(50))             # Room Type Description
     arrangement = Column(String(50))                # Arrangement from CSV
     
     # Dates and times
     in_house_date = Column(String(20))              # In House Date from CSV
-    arrival_date = Column(DateTime)                 # Arrival from CSV
-    depart_date = Column(DateTime)                  # Depart from CSV
+    arrival_date = Column(String(20))               # Arrival from CSV
+    depart_date = Column(String(20))                # Depart from CSV
     check_in_time = Column(String(20))              # C/I Time from CSV
     check_out_time = Column(String(20))             # C/O Time from CSV
     created_date = Column(String(20))               # Created from CSV
@@ -313,51 +285,28 @@ class ChatWhatsappProcessed(Base):
     message_type = Column(String(50))  # Type from CSV
     message_date = Column(DateTime)    # Date from CSV
     message = Column(Text)
+    # Kolom generated selalu hasil dari md5(message)
+    message_hash = Column(
+        String(32),
+        Computed("md5(message::text)", persisted=True)  # STORED di PostgreSQL
+    )
     last_updated = Column(DateTime(timezone=True), default=func.now())
     last_upload_id = Column(Integer, ForeignKey("csv_uploads.id"))
     
-    __table_args__ = (UniqueConstraint('phone_number', 'message_date', 'message', name='_phone_date_message_uc'),)
+    __table_args__ = (UniqueConstraint('phone_number', 'message_date', 'message_hash', name='_phone_date_message_uc'),)
 
 class TransaksiRestoProcessed(Base):
     __tablename__ = "transaksi_resto_processed"
     
     id = Column(Integer, primary_key=True, index=True)
-    
-    # Core transaction fields
-    bill_number = Column(String(50), index=True)             # Bill Number
-    article_number = Column(String(50))                      # Article Number  
-    guest_name = Column(String(255), index=True)             # Guest Name
-    item_name = Column(String(255))                          # Description
-    quantity = Column(Integer)                               # Quantity
-    sales = Column(Integer)                                  # Sales (in cents)
-    payment = Column(Integer)                                # Payment (in cents)
-    
-    # Classification fields
-    article_category = Column(String(50))                    # Article (Food/Beverages/etc)
-    article_subcategory = Column(String(100))                # Subarticle (Coffee/Pizza/etc)
-    outlet = Column(String(50))                              # Outlet (Restaurant & Bar/Room Service/Banquet)
-    
-    # Transaction details
-    table_number = Column(Integer)                           # Table Number
-    posting_id = Column(String(50))                          # Posting ID
-    reservation_number = Column(String(50))                  # Reservation Number
-    travel_agent_name = Column(String(255))                  # Travel Agent / Reserve Name
-    prev_bill_number = Column(String(50))                    # Previous Bill Number (before consolidation)
-    
-    # Timestamps
-    transaction_date = Column(DateTime)                      # Date
-    start_time = Column(String(20))                          # Start Time
-    close_time = Column(String(20))                          # Close Time
-    time = Column(String(20))                                # Time
-    timestamp = Column(DateTime)                             # For compatibility
-    
-    # Financial calculations
-    bill_discount = Column(Float, default=0.0)               # Bill Discount
-    bill_compliment = Column(Float, default=0.0)             # Bill Compliment  
-    total_deduction = Column(Float, default=0.0)             # Total Deduction
-    
-    # Metadata
+    transaction_id = Column(String(50))
+    guest_id = Column(String(50))
+    item_name = Column(String(255))
+    quantity = Column(Integer)
+    price = Column(Integer)  # in cents
+    total_amount = Column(Integer)  # in cents
+    timestamp = Column(DateTime)
     last_updated = Column(DateTime(timezone=True), default=func.now())
     last_upload_id = Column(Integer, ForeignKey("csv_uploads.id"))
     
-    __table_args__ = (UniqueConstraint('bill_number', 'article_number', 'guest_name', 'transaction_date', name='_bill_article_guest_date_uc'),)
+    __table_args__ = (UniqueConstraint('transaction_id', 'guest_id', 'timestamp', name='_transaction_guest_time_uc'),)
