@@ -8,6 +8,14 @@ import { StatCards } from "../../components/dashboard/StatCards";
 import { AnalyticsDashboard } from "../../components/dashboard/AnalyticsDashboard";
 import { UploadModal } from "../../components/dashboard/UploadModal";
 
+const formatDateLocal = (date: Date | undefined | null) => {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -72,8 +80,8 @@ export default function DashboardPage() {
     try {
       const res = await axios.get(`${API_BASE}/analytics/dimensions`, {
         params: {
-          start: dateRange.from.toISOString().slice(0, 10),
-          end: dateRange.to.toISOString().slice(0, 10),
+          start: formatDateLocal(dateRange.from),
+          end: formatDateLocal(dateRange.to),
         },
         withCredentials: true,
       });
@@ -99,8 +107,8 @@ export default function DashboardPage() {
     setPs((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const params = {
-        start: ps.dateRange.from.toISOString().slice(0, 10),
-        end: ps.dateRange.to.toISOString().slice(0, 10),
+        start: formatDateLocal(ps.dateRange.from),
+        end: formatDateLocal(ps.dateRange.to),
         group_by: ps.group_by,
         segment_in: ps.segmentSelected || undefined,
         room_type_in: ps.roomTypeSelected || undefined,
