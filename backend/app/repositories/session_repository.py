@@ -1,4 +1,4 @@
-# backend/app/repositories/session_repository.py
+# app/repositories/session_repository.py
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_

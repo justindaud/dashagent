@@ -101,7 +101,7 @@ services:
     container_name: clickhouse-sink-db
     ports:
       - "8123:8123"
-      - "9000:9000"
+      - "9005:9000"
     environment:
       - CLICKHOUSE_PASSWORD=password123
     volumes:
@@ -119,4 +119,4 @@ volumes:
 
 networks:
   data-pipeline-net:
-    external: true
+    driver: bridge
