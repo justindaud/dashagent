@@ -19,14 +19,14 @@ FROM
         {dimension} AS value,
         greatest(arrival_date, d_start) AS overlap_start,
         least(depart_date,  d_end)      AS overlap_end
-    FROM default.datamart_reservations final
+    FROM default.datamart_reservations FINAL
     WHERE
         arrival_date <= d_end
         AND depart_date  >= d_start
 ) AS r
 ARRAY JOIN
     arrayMap(
-        x -> r.overlap_start + x,
+        x -> r.overlap_start + toIntervalDay(x),
         range(dateDiff('day', r.overlap_start, r.overlap_end) + 1)
     ) AS day
 WHERE
@@ -59,6 +59,7 @@ def get_dimensions(
         "local_region": _fetch_dimension_values(db, "local_region", start, end),
         "room_type_desc": _fetch_dimension_values(db, "room_type_desc", start, end),
     }
+
 
 def _build_in_filter(column: str, values: List[str]) -> str:
     if not values:
@@ -122,7 +123,7 @@ def get_aggregate_clickhouse(
         WITH
             toDate(:d_start) AS d_start,
             toDate(:d_end)   AS d_end,
-            dateDiff('day', d_start, d_end) AS period_days
+            dateDiff('day', d_start, d_end) + 1 AS period_days
         SELECT
             group_key,
             sum(room_rate_per_night)   AS revenue_sum,
@@ -154,7 +155,7 @@ def get_aggregate_clickhouse(
                     age,
                     greatest(arrival_date, d_start) AS overlap_start,
                     least(depart_date,  d_end)      AS overlap_end
-                FROM default.datamart_reservations final
+                FROM default.datamart_reservations FINAL
                 WHERE
                     arrival_date <= d_end
                     AND depart_date  >= d_start
@@ -162,7 +163,7 @@ def get_aggregate_clickhouse(
             ) AS r
             ARRAY JOIN
                 arrayMap(
-                    x -> r.overlap_start + x,
+                    x -> r.overlap_start + toIntervalDay(x),
                     range(dateDiff('day', r.overlap_start, r.overlap_end) + 1)
                 ) AS stay_date
         ) AS expanded
@@ -177,7 +178,7 @@ def get_aggregate_clickhouse(
         WITH
             toDate(:d_start) AS d_start,
             toDate(:d_end)   AS d_end,
-            dateDiff('day', d_start, d_end) AS period_days
+            dateDiff('day', d_start, d_end) + 1 AS period_days
         SELECT
             NULL                         AS group_key,
             sum(room_rate_per_night)     AS revenue_sum,
@@ -208,7 +209,7 @@ def get_aggregate_clickhouse(
                     age,
                     greatest(arrival_date, d_start) AS overlap_start,
                     least(depart_date,  d_end)      AS overlap_end
-                FROM default.datamart_reservations final
+                FROM default.datamart_reservations FINAL
                 WHERE
                     arrival_date <= d_end
                     AND depart_date  >= d_start
@@ -216,7 +217,7 @@ def get_aggregate_clickhouse(
             ) AS r
             ARRAY JOIN
                 arrayMap(
-                    x -> r.overlap_start + x,
+                    x -> r.overlap_start + toIntervalDay(x),
                     range(dateDiff('day', r.overlap_start, r.overlap_end) + 1)
                 ) AS stay_date
         ) AS expanded
@@ -225,11 +226,15 @@ def get_aggregate_clickhouse(
     rows = list(db.execute(text(sql), {"d_start": start, "d_end": end}))
 
     if not rows:
+        nights = (end - start).days + 1
+        if nights < 0:
+            nights = 0
+
         return {
             "period": {
                 "start": str(start),
                 "end": str(end),
-                "nights": (end - start).days,
+                "nights": nights,
             },
             "totals": {
                 "revenue_sum": 0.0,
@@ -287,3 +292,99 @@ def get_aggregate_clickhouse(
         "totals": totals,
         "breakdown": breakdown,
     }
+
+
+def get_nightly_totals_per_type_clickhouse(
+    db: Session,
+    start: date,
+    end: date,
+    segment_in: Optional[str],
+    room_type_desc_in: Optional[str],
+    local_region_in: Optional[str],
+    nationality_in: Optional[str],
+) -> List[Dict[str, Any]]:
+    seg_list = parse_csv_list(segment_in)
+    rt_list = parse_csv_list(room_type_desc_in)
+    lr_list = parse_csv_list(local_region_in)
+    nat_list = parse_csv_list(nationality_in)
+
+    filters_sql = ""
+    filters_sql += _build_in_filter("segment", seg_list)
+    filters_sql += _build_in_filter("room_type_desc", rt_list)
+    filters_sql += _build_in_filter("local_region", lr_list)
+    filters_sql += _build_in_filter("nationality", nat_list)
+
+    sql = f"""
+    WITH
+        toDate(:d_start) AS d_start,
+        toDate(:d_end)   AS d_end
+    SELECT
+        stay_date,
+        room_type_desc,
+        sum(room_rate_per_night) AS revenue_sum,
+        count()                  AS room_sold
+    FROM
+    (
+        SELECT
+            reservation_id,
+            room_rate AS room_rate_per_night,
+            segment,
+            room_type_desc,
+            local_region,
+            nationality,
+            age,
+            stay_date
+        FROM
+        (
+            SELECT
+                reservation_id,
+                room_rate,
+                segment,
+                room_type_desc,
+                local_region,
+                nationality,
+                age,
+                greatest(arrival_date, d_start) AS overlap_start,
+                least(depart_date,  d_end)      AS overlap_end
+            FROM default.datamart_reservations FINAL
+            WHERE
+                arrival_date <= d_end
+                AND depart_date  >= d_start
+                {filters_sql}
+        ) AS r
+        ARRAY JOIN
+            arrayMap(
+                x -> r.overlap_start + toIntervalDay(x),
+                range(dateDiff('day', r.overlap_start, r.overlap_end) + 1)
+            ) AS stay_date
+    ) AS expanded
+    GROUP BY
+        stay_date,
+        room_type_desc
+    ORDER BY
+        stay_date ASC,
+        room_type_desc ASC
+    """
+
+    rows = list(db.execute(text(sql), {"d_start": start, "d_end": end}))
+
+    result: List[Dict[str, Any]] = []
+    for r in rows:
+        if r.room_type_desc is None:
+            continue
+
+        raw_date = r.stay_date
+        if hasattr(raw_date, "date"):
+            stay_date = raw_date.date()
+        else:
+            stay_date = raw_date
+
+        result.append(
+            {
+                "stay_date": stay_date,
+                "room_type_desc": r.room_type_desc,
+                "revenue_sum": float(r.revenue_sum or 0),
+                "room_sold": int(r.room_sold or 0),
+            }
+        )
+    return result

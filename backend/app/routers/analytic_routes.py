@@ -20,7 +20,6 @@ from app.schemas.analytics import DimensionsResponse, AggregateResponse
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 logger = logging.getLogger(__name__)
 
-
 @router.get(
     "/dimensions",
     response_model=ApiResponse[DimensionsResponse],
@@ -72,11 +71,6 @@ def get_aggregate(
     nationality_in: Optional[str] = Query(None, description="Comma-separated list of nationalities"),
     top_n: Optional[int] = Query(None, ge=1, le=50),
     include_other: bool = Query(False),
-    total_rooms: Optional[int] = Query(
-        None,
-        ge=1,
-        description="Override total number of rooms (if not set, use value from RoomBuild)",
-    ),
     db_ch: Session = Depends(get_clickhouse_db),
     db_pg: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -99,7 +93,6 @@ def get_aggregate(
             nationality_in=nationality_in,
             top_n=top_n,
             include_other=include_other,
-            room_count_override=total_rooms,
         )
 
         agg = AggregateResponse(**agg_dict)
