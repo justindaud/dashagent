@@ -1,7 +1,6 @@
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
-    platform: linux/arm64
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -12,7 +11,6 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
-    platform: linux/arm64
     container_name: kafka
     depends_on:
       - zookeeper
@@ -68,7 +66,6 @@ services:
 
   spark:
     image: jupyter/pyspark-notebook:spark-3.4.1
-    platform: linux/arm64
     container_name: pyspark-transformer
     ports:
       - "4040:4040"
