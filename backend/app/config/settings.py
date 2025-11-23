@@ -2,7 +2,7 @@
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 load_dotenv()
 
@@ -25,7 +25,7 @@ class Settings(BaseModel):
 
     # Cookies
     COOKIE_NAME: str = os.getenv("COOKIE_NAME")
-    COOKIE_DOMAIN: str = os.getenv("COOKIE_DOMAIN")
+    COOKIE_DOMAIN: Optional[str] = os.getenv("COOKIE_DOMAIN") or None
     COOKIE_PATH: str = os.getenv("COOKIE_PATH")
     COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE")
     COOKIE_SECURE: bool = os.getenv("COOKIE_SECURE").lower()
