@@ -28,7 +28,7 @@ class Settings(BaseModel):
     COOKIE_DOMAIN: Optional[str] = os.getenv("COOKIE_DOMAIN") or None
     COOKIE_PATH: str = os.getenv("COOKIE_PATH")
     COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE")
-    COOKIE_SECURE: bool = os.getenv("COOKIE_SECURE").lower()
+    COOKIE_SECURE: bool = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 
     # OpenAI
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
