@@ -47,7 +47,7 @@ def make_sa_session(session_id: str) -> SQLAlchemySession:
     return SQLAlchemySession(
         session_id=session_id,
         engine=engine,
-        create_tables=True,
+        create_tables=False,
     )
 
 # Stream events
@@ -274,19 +274,6 @@ class DashboardAgent:
                         ORDER BY s.updated_at ASC
                         LIMIT 1;
                         """
-                    '''    
-                    q = f"""
-                        SELECT 
-                            s.session_id,
-                            si.session_id as analyzed_session
-                        FROM agent_sessions s
-                        LEFT JOIN session_insights si ON s.session_id = si.session_id
-                        WHERE s.updated_at = (
-                            SELECT MAX(updated_at) FROM agent_sessions
-                        )
-                        AND si.session_id IS NULL
-                        """    
-                    '''
                     console.print("[bold cyan]Fetching experience...[/bold cyan]")
 
                     async with engine.connect() as conn:
@@ -295,14 +282,11 @@ class DashboardAgent:
                     
                     #experience = fetch_experience(limit=500)
 
-                    if not row:
+                    if not row or row[1] is not None:
                         console.print("[yellow]No new sessions to analyze[/yellow]")
                         return
 
-                    session_id_from_db, last_insight_at = row[0], row[1]
-                    console.print(f"[cyan]Picked session:[/cyan] {session_id_from_db} (last_insight_at={last_insight_at})")
-
-                    self.session_id = session_id_from_db
+                    self.session_id = row[0]
 
                     sql_session = SQLAlchemySession(session_id=self.session_id, engine=engine)
                     result = Runner.run_streamed(

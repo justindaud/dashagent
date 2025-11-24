@@ -11,7 +11,8 @@ from agents.extensions.memory.sqlalchemy_session import SQLAlchemySession
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 
-from scripts.experience_func import fetch_experience
+from scripts.experience_func import fetch_experience, ingest_insights_async
+from agents_tools.sematicsearch_tool import search_insights_semantic
 
 load_dotenv()
 
@@ -38,15 +39,21 @@ class ExperienceDigest(BaseModel):
     preferences: List[str] = []
 
 EXPERIENCE_PROMPT = """
-Anda adalah agent pengalaman. Anda memiliki tugas untuk:
+Anda adalah agent yang memiliki tugas untuk:
 1. Membaca percakapan historis dengan user dari database dan digest menjadi insight
-2. Membaca dan mempelajari experience dari vector store
-3. Secara selektif menambahkan atau konversikan percakapan menjadi experience untuk diingat
+2. Membaca dan mempelajari experience yang sudah pernah tersimpan
+3. Secara selektif menambahkan atau konversikan percakapan menjadi insights untuk diingat
 
 Insights perlu mencakup:
 1. Insights: Berkaitan dengan suatu informasi penting yang perlu diingat tetapi bersifat umum
 2. Patterns: Berkaitan dengan step-by-step yang perlu diingat. Bisa berupa step-by-step penggunaan agent, query, tools, dll.
 3. Preferences: Berkaitan dengan preferensi gaya bahasa, penulisan format, dll.
+
+Spesifikasi setiap poin/list insights:
+1. Merupakan kalimat utuh
+2. Memuat konteks
+3. Consise namun rich
+4. Tidak secara eksplisit menyebutkan isi/hasil data
 
 Insights akan secara langsung digunakan oleh prompt agent untuk membuat prompt yang lebih spesifik.
 Sehingga orchestrator bisa dengan baik menentukan penggunaan agent analyst atau search.
@@ -58,10 +65,15 @@ async def main():
     engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
     
     q = f"""
-        SELECT session_id
-        FROM agent_messages
-        ORDER BY created_at DESC
-        LIMIT 1
+        SELECT 
+            s.session_id,
+            si.session_id as analyzed_session
+        FROM agent_sessions s
+        LEFT JOIN session_insights si ON s.session_id = si.session_id
+        WHERE s.updated_at = (
+            SELECT MAX(updated_at) FROM agent_sessions
+        )
+        AND si.session_id IS NULL
         """
     
     async with engine.connect() as conn:
@@ -72,7 +84,9 @@ async def main():
     agent = Agent(
         name="Experience Agent",
         instructions=EXPERIENCE_PROMPT,
-        output_type=AgentOutputSchema(ExperienceDigest)
+        model="gpt-5",
+        output_type=AgentOutputSchema(ExperienceDigest),
+        tools=[search_insights_semantic]
     )
 
     sql_session = SQLAlchemySession(session_id=session_id, engine=engine)
@@ -86,7 +100,26 @@ async def main():
             agent,
             "Anda akan membaca keseluruhan pecakapan, pahami konteks, buat insights sebagai list dari hal-hal yang perlu diingat, sebutkan table, fields, sql, cara membuat query, link, cara menentukan url, dsb", 
             session=sql_session,)
-        print(result.final_output)
+        
+        print("Generated insights:")
+        print(f"Insights count: {len(result.final_output.insights)}")
+        print(f"Patterns count: {len(result.final_output.patterns)}")
+        print(f"Preferences count: {len(result.final_output.preferences)}")
+        
+        # Store insights to database
+        if result.final_output and session_id:
+            print("\nStoring insights to database...")
+            status = await ingest_insights_async(
+                session_id=session_id,
+                user_id="test_user",
+                insights=result.final_output.insights,
+                patterns=result.final_output.patterns,
+                preferences=result.final_output.preferences,
+                async_engine=engine
+            )
+            print(f"Storage status: {status}")
+        else:
+            print("No insights generated or session_id missing")
 
     await engine.dispose()
 

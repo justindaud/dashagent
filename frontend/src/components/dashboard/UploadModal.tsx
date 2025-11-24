@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 import { Upload, Trash2 } from "lucide-react";
 import { RecentUpload } from "@/lib/types";
 
@@ -32,7 +31,6 @@ export function UploadModal({ isOpen, onOpenChange, onUploadSuccess }: UploadMod
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFileType, setSelectedFileType] = useState<string>("profile_tamu");
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [deletingUploadId, setDeletingUploadId] = useState<number | null>(null);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -66,7 +64,6 @@ export function UploadModal({ isOpen, onOpenChange, onUploadSuccess }: UploadMod
   const handleFileUpload = async () => {
     if (!selectedFile) return;
     setUploading(true);
-    setUploadProgress(0);
     setUploadMessage(null);
     const formData = new FormData();
     formData.append("file", selectedFile);
@@ -76,12 +73,6 @@ export function UploadModal({ isOpen, onOpenChange, onUploadSuccess }: UploadMod
       const response = await axios.post(`${API_BASE}/csv/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
         withCredentials: true,
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(percentCompleted);
-          }
-        },
       });
       setUploadMessage({ type: "success", text: `Upload success! ${response.data.rows_processed} rows processed.` });
       setSelectedFile(null);
@@ -115,15 +106,33 @@ export function UploadModal({ isOpen, onOpenChange, onUploadSuccess }: UploadMod
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md md:max-w-2xl lg:max-w-4xl max-h-[90vh] flex flex-col">
+      <Dialog
+        open={isOpen}
+        onOpenChange={(val) => {
+          if (uploading && !val) return;
+          onOpenChange(val);
+        }}
+      >
+        <DialogContent
+          className={`max-w-md md:max-w-2xl lg:max-w-4xl max-h-[90vh] flex flex-col ${uploading ? "[&>button]:hidden" : ""}`}
+          onInteractOutside={(e) => {
+            if (uploading) {
+              e.preventDefault();
+            }
+          }}
+          onEscapeKeyDown={(e) => {
+            if (uploading) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5" />
+              {uploading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" /> : <Upload className="w-5 h-5" />}
               Data Upload Manager
             </DialogTitle>
+            {uploading && <p className="text-sm text-muted-foreground text-red-500 font-medium mt-1">Uploading file...</p>}
           </DialogHeader>
-
           <div className="flex-grow overflow-y-auto pr-2 space-y-6 p-1">
             {/* Area Upload */}
             <div>
@@ -153,8 +162,7 @@ export function UploadModal({ isOpen, onOpenChange, onUploadSuccess }: UploadMod
                     <p className="text-sm text-gray-600">Selected: {selectedFile.name}</p>
                     {uploading ? (
                       <div className="mt-2 space-y-2">
-                        <Progress value={uploadProgress} className="w-full" />
-                        <p className="text-sm text-primary">{uploadProgress}%</p>
+                        <p className="text-sm text-primary">Uploading File...</p>
                       </div>
                     ) : (
                       <Button onClick={handleFileUpload} disabled={uploading} className="mt-2">

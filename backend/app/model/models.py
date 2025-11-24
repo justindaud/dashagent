@@ -4,7 +4,6 @@ from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import text
 from app.db.database import Base
 
-
 class CSVUpload(Base):
     __tablename__ = "csv_uploads"
     

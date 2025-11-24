@@ -5,7 +5,7 @@ import os
 
 load_dotenv()
 
-VS_ID = os.getenv("GOVERNANCE_VS_ID")
+VS_ID = os.getenv("VS_ID")
 
 ANALYST_PROMPT = """
 Anda adalah data analyst yang ahli dalam menganalisis data hotel menggunakan PostgreSQL.
@@ -40,6 +40,6 @@ analyst_agent = Agent(
         FileSearchTool(vector_store_ids=[VS_ID], max_num_results=4),
         query_database
     ],
-    model="gpt-4o-mini",
+    model="gpt-4.1",
     model_settings=ModelSettings(tool_choice="auto")
 )

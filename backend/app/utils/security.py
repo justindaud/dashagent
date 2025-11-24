@@ -6,7 +6,7 @@ from app.config.settings import settings
 
 def create_access_token(subject: str, role: str, token_version: int, extra_claims: Optional[Dict[str, Any]] = None) -> str:
     now = datetime.now(timezone.utc)
-    exp = now + timedelta(hours=settings.JWT_EXPIRATION_HOURS)
+    exp = now + timedelta(days=settings.JWT_EXPIRATION_DAYS)
     payload = {
         "sub": subject,
         "role": role,
