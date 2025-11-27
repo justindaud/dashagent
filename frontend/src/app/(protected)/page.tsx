@@ -8,6 +8,7 @@ import { StatCards } from "../../components/dashboard/StatCards";
 import { AnalyticsDashboard } from "../../components/dashboard/AnalyticsDashboard";
 import { UploadModal } from "../../components/dashboard/UploadModal";
 
+// HELPER DATE
 const formatDateLocal = (date: Date | undefined | null) => {
   if (!date) return "";
   const year = date.getFullYear();
@@ -60,14 +61,25 @@ export default function DashboardPage() {
   const fetchDashboardData = async () => {
     try {
       const statsRes = await axios.get(`${API_BASE}/dashboard/stats`, { withCredentials: true });
-      setStats(statsRes.data);
 
-      if (statsRes.data.latest_depart_date) {
-        const endDate = new Date(statsRes.data.latest_depart_date);
-        const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const newDateRange = { from: startDate, to: endDate };
-        setPanelA((prev) => ({ ...prev, dateRange: newDateRange }));
-        setPanelB((prev) => ({ ...prev, dateRange: newDateRange }));
+      const responseData = statsRes.data;
+
+      if (responseData && Array.isArray(responseData.data) && responseData.data.length > 0) {
+        const actualStats = responseData.data[0];
+
+        // console.log("✅ Stats Loaded:", actualStats);
+        setStats(actualStats);
+
+        if (actualStats.latest_depart_date) {
+          const endDate = new Date(actualStats.latest_depart_date);
+          const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const newDateRange = { from: startDate, to: endDate };
+
+          setPanelA((prev) => ({ ...prev, dateRange: newDateRange }));
+          setPanelB((prev) => ({ ...prev, dateRange: newDateRange }));
+        }
+      } else {
+        console.warn("⚠️ Format data tidak sesuai atau kosong:", responseData);
       }
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -105,22 +117,50 @@ export default function DashboardPage() {
     if (!ps.dateRange?.from || !ps.dateRange?.to) return;
 
     setPs((prev) => ({ ...prev, loading: true, error: null }));
+
+    const params = {
+      start: formatDateLocal(ps.dateRange.from),
+      end: formatDateLocal(ps.dateRange.to),
+      group_by: ps.group_by,
+      segment_in: ps.segmentSelected || undefined,
+      room_type_in: ps.roomTypeSelected || undefined,
+      local_region_in: ps.localRegionSelected || undefined,
+      nationality_in: ps.nationalitySelected || undefined,
+      top_n: ps.topN,
+      include_other: ps.includeOther,
+    };
+
     try {
-      const params = {
-        start: formatDateLocal(ps.dateRange.from),
-        end: formatDateLocal(ps.dateRange.to),
-        group_by: ps.group_by,
-        segment_in: ps.segmentSelected || undefined,
-        room_type_in: ps.roomTypeSelected || undefined,
-        local_region_in: ps.localRegionSelected || undefined,
-        nationality_in: ps.nationalitySelected || undefined,
-        top_n: ps.topN,
-        include_other: ps.includeOther,
-      };
-      const res = await axios.get<AnalyticsResponse>(`${API_BASE}/analytics/aggregate`, { params, withCredentials: true });
+      console.log(`📤 Fetching Analytics Panel ${panel}...`, params);
+
+      const res = await axios.get<AnalyticsResponse>(`${API_BASE}/analytics/aggregate`, {
+        params,
+        withCredentials: true,
+      });
+
       setPs((prev) => ({ ...prev, data: res.data, loading: false }));
     } catch (e: any) {
-      setPs((prev) => ({ ...prev, error: e?.response?.data?.detail || "Failed to fetch analytics", loading: false }));
+      console.error(`❌ Error Fetching Analytics Panel ${panel}:`, e);
+
+      let errorMessage = "Failed to fetch analytics";
+
+      if (e.response && e.response.data) {
+        const data = e.response.data;
+
+        if (data.messages) {
+          errorMessage = data.messages;
+        } else if (data.detail) {
+          errorMessage = typeof data.detail === "object" ? JSON.stringify(data.detail) : data.detail;
+        } else if (data.message) {
+          errorMessage = data.message;
+        } else if (e.response.status === 500) {
+          errorMessage = "Internal Server Error (500). Cek konfigurasi Database Backend.";
+        }
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+
+      setPs((prev) => ({ ...prev, error: errorMessage, loading: false }));
     }
   };
 
@@ -136,8 +176,8 @@ export default function DashboardPage() {
 
   const computeOccupancyPct = (data: AnalyticsResponse | null, totalRooms: number) => {
     if (!data || !totalRooms) return 0;
-    const nights = data.totals.occupied_room_nights || 0;
-    const days = data.period.days || 1;
+    const nights = data.totals?.occupied_room_nights || 0;
+    const days = data.period?.days || 1;
     const denom = totalRooms * days;
     return denom > 0 ? Math.min(100, (nights / denom) * 100) : 0;
   };
