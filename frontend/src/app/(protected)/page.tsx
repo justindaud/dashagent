@@ -24,9 +24,9 @@ export default function DashboardPage() {
   const [compareOn, setCompareOn] = useState(false);
   const [dimensions, setDimensions] = useState<DimensionOptions>({
     segment: [],
-    room_type: [],
     local_region: [],
     nationality: [],
+    room_type_desc: [],
   });
 
   const today = new Date();
@@ -89,6 +89,7 @@ export default function DashboardPage() {
   const fetchDimensions = async () => {
     const dateRange = panelA.dateRange;
     if (!dateRange?.from || !dateRange?.to) return;
+
     try {
       const res = await axios.get(`${API_BASE}/analytics/dimensions`, {
         params: {
@@ -97,7 +98,19 @@ export default function DashboardPage() {
         },
         withCredentials: true,
       });
-      setDimensions(res.data);
+
+      console.log("🔍 CEK DATA DIMENSI:", res.data);
+
+      const responseBody = res.data;
+
+      if (responseBody && Array.isArray(responseBody.data) && responseBody.data.length > 0) {
+        const dimensionsData = responseBody.data[0];
+
+        setDimensions(dimensionsData);
+      } else {
+        console.warn("⚠️ Format dimensi tidak sesuai (bukan array), mencoba raw:", responseBody);
+        setDimensions(responseBody);
+      }
     } catch (e) {
       console.error("Failed to fetch dimensions", e);
     }
@@ -138,6 +151,16 @@ export default function DashboardPage() {
         withCredentials: true,
       });
 
+      const responseBody: any = res.data;
+      let analyticsData = responseBody;
+
+      if (responseBody && Array.isArray(responseBody.data) && responseBody.data.length > 0) {
+        analyticsData = responseBody.data[0];
+        console.log(`✅ (Unwrapped) Analytics Data Panel ${panel}:`, analyticsData);
+      } else {
+        console.log(`✅ (Raw) Analytics Data Panel ${panel}:`, analyticsData);
+      }
+
       setPs((prev) => ({ ...prev, data: res.data, loading: false }));
     } catch (e: any) {
       console.error(`❌ Error Fetching Analytics Panel ${panel}:`, e);
@@ -176,7 +199,10 @@ export default function DashboardPage() {
 
   const computeOccupancyPct = (data: AnalyticsResponse | null, totalRooms: number) => {
     if (!data || !totalRooms) return 0;
-    const nights = data.totals?.occupied_room_nights || 0;
+
+    const totals: any = data.totals || {};
+    const nights = totals.room_sold || totals.occupied_room_nights || 0;
+
     const days = data.period?.days || 1;
     const denom = totalRooms * days;
     return denom > 0 ? Math.min(100, (nights / denom) * 100) : 0;
