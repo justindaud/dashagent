@@ -2,16 +2,9 @@
 import React from "react";
 import { Pie, Bar } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from "chart.js";
+import { AnalyticsBreakdownItem } from "@/lib/types";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
-
-interface AnalyticsBreakdownItem {
-  key: string;
-  revenue_sum: number;
-  occupied_room_nights: number;
-  arr_simple: number;
-  bookings_count: number;
-}
 
 interface PieChartContainerProps {
   data: AnalyticsBreakdownItem[];
@@ -23,14 +16,23 @@ interface PieChartContainerProps {
 }
 
 export function PieChartContainer({ data, dataKey, nameKey, title, description, className }: PieChartContainerProps) {
+  // Defensive check: Jika data kosong/undefined, return null atau pesan kosong
+  if (!data || data.length === 0) {
+    return (
+      <div className={`${className} flex items-center justify-center border-2 border-dashed rounded-lg`}>
+        <p className="text-gray-400 text-sm">No data available for {title}</p>
+      </div>
+    );
+  }
+
   // Calculate total for percentage calculation
-  const total = data.reduce((sum, item) => sum + (item[dataKey] as number), 0);
+  const total = data.reduce((sum, item) => sum + (Number(item[dataKey]) || 0), 0);
 
   const chartData = {
-    labels: data.map((item) => item[nameKey] as string),
+    labels: data.map((item) => String(item[nameKey])),
     datasets: [
       {
-        data: data.map((item) => item[dataKey] as number),
+        data: data.map((item) => Number(item[dataKey]) || 0),
         backgroundColor: [
           "#3B82F6", // blue-500
           "#10B981", // emerald-500
@@ -40,6 +42,8 @@ export function PieChartContainer({ data, dataKey, nameKey, title, description, 
           "#06B6D4", // cyan-500
           "#84CC16", // lime-500
           "#F97316", // orange-500
+          "#6366F1", // indigo-500
+          "#EC4899", // pink-500
         ],
         borderWidth: 2,
         borderColor: "#ffffff",
@@ -66,7 +70,8 @@ export function PieChartContainer({ data, dataKey, nameKey, title, description, 
           label: function (context: any) {
             const label = context.label || "";
             const value = context.parsed;
-            const percentage = ((value / total) * 100).toFixed(1);
+            // Cegah pembagian dengan nol (NaN)
+            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
             return `${label}: ${value.toLocaleString()} (${percentage}%)`;
           },
         },
@@ -76,7 +81,7 @@ export function PieChartContainer({ data, dataKey, nameKey, title, description, 
 
   return (
     <div className={className}>
-      <div className="grid md:grid-cols-2 ">
+      <div className="grid md:grid-cols-2 gap-4">
         <div>
           <div className="text-center mb-4">
             <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
@@ -89,16 +94,16 @@ export function PieChartContainer({ data, dataKey, nameKey, title, description, 
         </div>
 
         {/* Value + Percentage breakdown table */}
-        <div className="mt-4">
+        <div className="mt-4 overflow-y-auto max-h-[300px]">
           <div className="text-sm font-medium text-gray-700 mb-2">Breakdown by Value & Percentage:</div>
           <div className="space-y-1">
             {data.map((item, index) => {
-              const value = item[dataKey] as number;
-              const percentage = ((value / total) * 100).toFixed(1);
+              const value = Number(item[dataKey]) || 0;
+              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
               return (
-                <div key={index} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">{item[nameKey] as string}</span>
-                  <span className="font-medium">
+                <div key={index} className="flex justify-between items-center text-sm p-1 hover:bg-gray-50 rounded">
+                  <span className="text-gray-600 truncate mr-2">{String(item[nameKey])}</span>
+                  <span className="font-medium whitespace-nowrap">
                     {Math.round(value).toLocaleString()} ({percentage}%)
                   </span>
                 </div>

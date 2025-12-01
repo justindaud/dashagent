@@ -5,7 +5,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { PieChartContainer } from "@/components/ui/chart";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -51,10 +51,25 @@ export function AnalyticsPanel({
   computeOccupancyPct,
   isDisabled = false,
 }: AnalyticsPanelProps) {
-  // Handler untuk memperbarui state berdasarkan perubahan pada field tertentu
   const handleStateChange = <K extends keyof PanelState>(field: K, value: PanelState[K]) => {
     setState((prevState) => ({ ...prevState, [field]: value }));
   };
+
+  // --- SAFE DATA UNWRAPPING ---
+  // Memastikan data aman dibaca, baik terbungkus array maupun object langsung
+  const rawData: any = state.data;
+
+  const actualData = rawData && Array.isArray(rawData.data) && rawData.data.length > 0 ? rawData.data[0] : rawData;
+
+  // Helper untuk akses totals dengan aman
+  const totals: any = actualData?.totals || {};
+
+  // Mapping key dari backend (revenue_sum, arr_simple)
+  const totalRevenue = totals.revenue_sum || 0;
+  const totalArr = totals.arr_simple || 0;
+
+  // Pastikan breakdown selalu array
+  const breakdownData = Array.isArray(actualData?.breakdown) ? actualData.breakdown : [];
 
   return (
     <div className="space-y-4">
@@ -71,16 +86,13 @@ export function AnalyticsPanel({
         />
       </div>
 
-      {/* Filters dan Options */}
       <Accordion type="single" collapsible className="w-full mb-4">
         <AccordionItem value={`filters-${panelId}`}>
           <AccordionTrigger className="text-sm font-medium">Advanced Filters & Dimensions</AccordionTrigger>
           <AccordionContent className="pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Group By Dropdown */}
               <div className="space-y-2">
                 <label className="text-sm text-gray-600 font-medium">Group By</label>
-
                 <Select value={state.group_by} onValueChange={(value) => handleStateChange("group_by", value as GroupBy)}>
                   <SelectTrigger className="w-full bg-white hover:border-primary">
                     <SelectValue placeholder="Select how to group data" />
@@ -88,7 +100,7 @@ export function AnalyticsPanel({
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
                     <SelectItem value="segment">Segment</SelectItem>
-                    <SelectItem value="room_type">Room Type</SelectItem>
+                    <SelectItem value="room_type_desc">Room Type</SelectItem>
                     <SelectItem value="local_region">City (local_region)</SelectItem>
                     <SelectItem value="nationality">Nationality</SelectItem>
                     <SelectItem value="age_group">Age Group</SelectItem>
@@ -96,7 +108,6 @@ export function AnalyticsPanel({
                 </Select>
               </div>
 
-              {/* Filter Segments */}
               <div className="space-y-2">
                 <label className="text-sm text-gray-600 font-medium">Select segments</label>
                 <MultiSelect
@@ -109,11 +120,10 @@ export function AnalyticsPanel({
                 />
               </div>
 
-              {/* Filter Room Types */}
               <div className="space-y-2">
                 <label className="text-sm text-gray-600 font-medium">Select room types</label>
                 <MultiSelect
-                  options={dimensions.room_type}
+                  options={dimensions.room_type_desc}
                   selected={state.roomTypeSelected.split(",").filter(Boolean)}
                   onChange={(selected) => handleStateChange("roomTypeSelected", selected.join(","))}
                   placeholder="Select room types..."
@@ -122,7 +132,6 @@ export function AnalyticsPanel({
                 />
               </div>
 
-              {/* Filter Cities */}
               <div className="space-y-2">
                 <label className="text-sm text-gray-600 font-medium">Select cities</label>
                 <MultiSelect
@@ -135,7 +144,6 @@ export function AnalyticsPanel({
                 />
               </div>
 
-              {/* Filter Nationalities */}
               <div className="space-y-2">
                 <label className="text-sm text-gray-600 font-medium">Select nationalities</label>
                 <MultiSelect
@@ -155,7 +163,6 @@ export function AnalyticsPanel({
           <AccordionTrigger className="text-sm font-medium">Display Options & Settings</AccordionTrigger>
           <AccordionContent className=" pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Top N Input */}
               <div className="space-y-2">
                 <label className="text-sm text-gray-600 font-medium">Top N</label>
                 <Input
@@ -171,7 +178,6 @@ export function AnalyticsPanel({
                 />
               </div>
 
-              {/* Total Rooms Input */}
               <div className="space-y-2">
                 <label className="text-sm text-gray-600 font-medium">Total Rooms</label>
                 <Input
@@ -187,8 +193,7 @@ export function AnalyticsPanel({
               </div>
             </div>
 
-            {/* Include Other Checkbox */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-4">
               <input
                 id={`includeOther${panelId}`}
                 type="checkbox"
@@ -203,7 +208,6 @@ export function AnalyticsPanel({
         </AccordionItem>
       </Accordion>
 
-      {/* Tombol Apply dan pesan error */}
       <div className="flex gap-2 mb-4 items-center">
         <Button onClick={() => onApply(panelId)} disabled={isDisabled || state.loading}>
           {state.loading ? "Loading…" : `Apply`}
@@ -211,7 +215,6 @@ export function AnalyticsPanel({
         {state.error && <span className="text-red-600 text-sm">{state.error}</span>}
       </div>
 
-      {/* Hasil Analitik */}
       <div className="border-t pt-4">
         <h4 className="font-semibold mb-4">Results</h4>
         {state.loading ? (
@@ -222,16 +225,16 @@ export function AnalyticsPanel({
             <div className="mb-4 rounded-lg border-2 border-primary">
               <div className="text-center p-4 bg-primary/10 rounded-t-lg mb-4">
                 <div className="text-lg text-gray-700">Total Revenue</div>
-                <div className="text-2xl font-bold text-primary">{formatCurrency(state.data.totals.revenue_sum)}</div>
+                <div className="text-2xl font-bold text-primary">{formatCurrency(totalRevenue)}</div>
                 <div className="text-xs text-gray-500 mt-1">{formatDateRange(state.dateRange?.from, state.dateRange?.to)}</div>
               </div>
               <PieChartContainer
-                data={state.data.breakdown}
+                data={breakdownData}
                 dataKey="revenue_sum"
                 nameKey="key"
                 title="Revenue Breakdown"
                 description={`By ${state.group_by}`}
-                className="min-h-[300px]  p-4"
+                className="min-h-[300px] p-4"
               />
             </div>
 
@@ -239,12 +242,15 @@ export function AnalyticsPanel({
             <div className="mb-4 rounded-lg border-2 border-primary">
               <div className="text-center p-4 bg-primary/10 rounded-t-lg mb-4">
                 <div className="text-lg text-gray-700">Occupancy Rate</div>
-                <div className="text-2xl font-bold primary text-primary">{computeOccupancyPct(state.data, state.totalRooms).toFixed(1)}%</div>
+                <div className="text-2xl font-bold primary text-primary">
+                  {/* Gunakan actualData untuk perhitungan occupancy */}
+                  {computeOccupancyPct(actualData, state.totalRooms).toFixed(1)}%
+                </div>
                 <div className="text-xs text-gray-500 mt-1">{formatDateRange(state.dateRange?.from, state.dateRange?.to)}</div>
               </div>
               <PieChartContainer
-                data={state.data.breakdown}
-                dataKey="occupied_room_nights"
+                data={breakdownData}
+                dataKey="room_sold"
                 nameKey="key"
                 title="Occupancy Breakdown"
                 description={`By ${state.group_by}`}
@@ -256,11 +262,11 @@ export function AnalyticsPanel({
             <div className="mb-4 rounded-lg border-2 border-primary">
               <div className="text-center p-4 bg-primary/10 rounded-t-lg mb-4">
                 <div className="text-lg text-gray-700">Average Room Rate</div>
-                <div className="text-2xl font-bold primary text-primary">{formatCurrency(state.data.totals.arr_simple)}</div>
+                <div className="text-2xl font-bold primary text-primary">{formatCurrency(totalArr)}</div>
                 <div className="text-xs text-gray-500 mt-1">{formatDateRange(state.dateRange?.from, state.dateRange?.to)}</div>
               </div>
               <PieChartContainer
-                data={state.data.breakdown}
+                data={breakdownData}
                 dataKey="arr_simple"
                 nameKey="key"
                 title="ARR Breakdown"
