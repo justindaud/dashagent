@@ -67,6 +67,10 @@ export function AnalyticsPanel({
   // Mapping key dari backend (revenue_sum, arr_simple)
   const totalRevenue = totals.revenue_sum || 0;
   const totalArr = totals.arr_simple || 0;
+  const occupancyRate = (totals.occupancy_rate * 100).toLocaleString("id-ID", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   // Pastikan breakdown selalu array
   const breakdownData = Array.isArray(actualData?.breakdown) ? actualData.breakdown : [];
@@ -244,7 +248,7 @@ export function AnalyticsPanel({
                 <div className="text-lg text-gray-700">Occupancy Rate</div>
                 <div className="text-2xl font-bold primary text-primary">
                   {/* Gunakan actualData untuk perhitungan occupancy */}
-                  {computeOccupancyPct(actualData, state.totalRooms).toFixed(1)}%
+                  {occupancyRate}%
                 </div>
                 <div className="text-xs text-gray-500 mt-1">{formatDateRange(state.dateRange?.from, state.dateRange?.to)}</div>
               </div>

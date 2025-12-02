@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
+import axios from "axios";
 import { Header } from "@/components/dashboard/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -313,9 +314,11 @@ export default function UserManagementPage() {
     confirm_password: "",
   });
 
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+
   const fetchCurrentUser = async () => {
     try {
-      const response = await api.get("/api/profile");
+      const response = await axios.get(`${API_BASE}/profile`, { withCredentials: true });
       if (response.data?.data?.[0]) {
         const userData = response.data.data[0];
         setCurrentUser(userData);
@@ -331,7 +334,7 @@ export default function UserManagementPage() {
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
     try {
-      const response = await api.get("/api/users");
+      const response = await axios.get(`${API_BASE}/users`, { withCredentials: true });
       if (response.data?.data) setUsers(response.data.data);
     } catch (error: any) {
       if (error.response?.status !== 401) setRegisterMessage({ type: "error", text: "Failed to load user list." });
@@ -353,13 +356,17 @@ export default function UserManagementPage() {
     setIsRegistering(true);
     setRegisterMessage(null);
     try {
-      await api.post("/api/auth/register", {
-        full_name: newFullName,
-        username: newUsername.toUpperCase(),
-        password: newPassword,
-        confirm_password: newConfirmPassword,
-        role: newRole,
-      });
+      await axios.post(
+        `${API_BASE}/auth/register`,
+        {
+          full_name: newFullName,
+          username: newUsername.toUpperCase(),
+          password: newPassword,
+          confirm_password: newConfirmPassword,
+          role: newRole,
+        },
+        { withCredentials: true }
+      );
       setRegisterMessage({ type: "success", text: "User registered successfully!" });
       setNewFullName("");
       setNewUsername("");
@@ -388,7 +395,7 @@ export default function UserManagementPage() {
     setIsUpdating(true);
     setUpdateMessage(null);
     try {
-      await api.put(`/api/users/${currentUser.user_id}`, payload);
+      await axios.put(`${API_BASE}/users/${currentUser.user_id}`, payload);
       setUpdateMessage({ type: "success", text: "Profile updated successfully!" });
       await fetchCurrentUser();
     } catch (error: any) {
@@ -440,7 +447,7 @@ export default function UserManagementPage() {
     setIsUpdating(true);
     setUpdateMessage(null);
     try {
-      await api.put(`/api/users/${userToEdit.user_id}`, payload);
+      await axios.put(`${API_BASE}/users/${userToEdit.user_id}`, payload);
       setUpdateMessage({ type: "success", text: "User updated successfully!" });
       setIsEditModalOpen(false);
       fetchUsers();
