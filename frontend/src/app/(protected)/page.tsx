@@ -99,8 +99,6 @@ export default function DashboardPage() {
         withCredentials: true,
       });
 
-      console.log("🔍 CEK DATA DIMENSI:", res.data);
-
       const responseBody = res.data;
 
       if (responseBody && Array.isArray(responseBody.data) && responseBody.data.length > 0) {

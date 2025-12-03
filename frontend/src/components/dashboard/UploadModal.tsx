@@ -46,10 +46,21 @@ export function UploadModal({ isOpen, onOpenChange, onUploadSuccess }: UploadMod
   const fetchRecentUploads = async () => {
     setLoadingUploads(true);
     try {
-      const res = await axios.get(`${API_BASE}/dashboard/recent-uploads`);
-      setRecentUploads(res.data);
+      const res = await axios.get(`${API_BASE}/dashboard/recent-uploads`, { withCredentials: true });
+
+      const responseBody = res.data;
+      let uploads: RecentUpload[] = [];
+
+      if (responseBody && Array.isArray(responseBody.data)) {
+        uploads = responseBody.data;
+      } else if (Array.isArray(responseBody)) {
+        uploads = responseBody;
+      }
+
+      setRecentUploads(uploads);
     } catch (error) {
       console.error("Error fetching recent uploads:", error);
+      setRecentUploads([]);
     } finally {
       setLoadingUploads(false);
     }

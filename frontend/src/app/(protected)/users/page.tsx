@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import api from "@/lib/axios";
+import axios from "axios";
 import { Header } from "@/components/dashboard/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { User, Shield, Loader2, Edit } from "lucide-react";
+import { User, Edit, Loader2, Shield } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface UserAccount {
@@ -27,6 +27,25 @@ interface UserViewProps {
   handleProfileUpdate: (payload: any) => Promise<void>;
   isUpdatingProfile: boolean;
   updateMessage: { type: "success" | "error"; text: string } | null;
+}
+
+interface AdminViewProps {
+  users: UserAccount[];
+  isLoadingUsers: boolean;
+  handleRegister: (e: React.FormEvent) => void;
+  newFullName: string;
+  setNewFullName: (value: string) => void;
+  newUsername: string;
+  setNewUsername: (value: string) => void;
+  newPassword: string;
+  setNewPassword: (value: string) => void;
+  newConfirmPassword: string;
+  setNewConfirmPassword: (value: string) => void;
+  newRole: string;
+  setNewRole: (value: string) => void;
+  isRegistering: boolean;
+  message: { type: "success" | "error"; text: string } | null;
+  openEditModal: (user: UserAccount) => void;
 }
 
 const UserView = ({ currentUser, handleProfileUpdate, isUpdatingProfile, updateMessage }: UserViewProps) => {
@@ -55,11 +74,11 @@ const UserView = ({ currentUser, handleProfileUpdate, isUpdatingProfile, updateM
 
   if (!isEditing) {
     return (
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md shadow-sm">
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="flex items-center gap-2">
-              <User /> Your Profile
+              <User className="w-5 h-5" /> Your Profile
             </CardTitle>
             <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
               <Edit className="h-4 w-4" />
@@ -86,7 +105,7 @@ const UserView = ({ currentUser, handleProfileUpdate, isUpdatingProfile, updateM
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md shadow-sm">
       <CardHeader>
         <CardTitle>Edit Your Profile</CardTitle>
         <CardDescription>Update your username or password below.</CardDescription>
@@ -98,7 +117,6 @@ const UserView = ({ currentUser, handleProfileUpdate, isUpdatingProfile, updateM
             <Input id="username-update" value={updatedUsername} onChange={(e) => setUpdatedUsername(e.target.value.toUpperCase())} required />
           </div>
           <hr />
-          <p className="text-sm text-gray-500">To change your password, fill all password fields.</p>
           <div className="space-y-2">
             <Label htmlFor="current-password">Current Password</Label>
             <Input
@@ -136,25 +154,6 @@ const UserView = ({ currentUser, handleProfileUpdate, isUpdatingProfile, updateM
   );
 };
 
-interface AdminViewProps {
-  users: UserAccount[];
-  isLoadingUsers: boolean;
-  handleRegister: (e: React.FormEvent) => void;
-  newFullName: string;
-  setNewFullName: (value: string) => void;
-  newUsername: string;
-  setNewUsername: (value: string) => void;
-  newPassword: string;
-  setNewPassword: (value: string) => void;
-  newConfirmPassword: string;
-  setNewConfirmPassword: (value: string) => void;
-  newRole: string;
-  setNewRole: (value: string) => void;
-  isRegistering: boolean;
-  message: { type: "success" | "error"; text: string } | null;
-  openEditModal: (user: UserAccount) => void;
-}
-
 const AdminView = ({
   users,
   isLoadingUsers,
@@ -188,23 +187,11 @@ const AdminView = ({
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="fullname-create">Full Name</Label>
-              <Input
-                id="fullname-create"
-                placeholder="e.g., John Doe"
-                value={newFullName}
-                onChange={(e) => setNewFullName(e.target.value)}
-                required
-              />
+              <Input id="fullname-create" value={newFullName} onChange={(e) => setNewFullName(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="username-create">Username</Label>
-              <Input
-                id="username-create"
-                placeholder="e.g., JOHNDOE"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value.toUpperCase())}
-                required
-              />
+              <Input id="username-create" value={newUsername} onChange={(e) => setNewUsername(e.target.value.toUpperCase())} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password-create">Password</Label>
@@ -222,7 +209,7 @@ const AdminView = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="role-create">Role</Label>
-              <Select value={newRole} onValueChange={(value) => setNewRole(value)}>
+              <Select value={newRole} onValueChange={setNewRole}>
                 <SelectTrigger id="role-create">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
@@ -261,10 +248,7 @@ const AdminView = ({
             users.map((user) => (
               <div key={user.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
                 <div className="flex items-center gap-3">
-                  <span
-                    className={`h-2.5 w-2.5 rounded-full ${user.is_active ? "bg-green-500" : "bg-gray-400"}`}
-                    title={user.is_active ? "Active" : "Inactive"}
-                  ></span>
+                  <span className={`h-2.5 w-2.5 rounded-full ${user.is_active ? "bg-green-500" : "bg-gray-400"}`}></span>
                   <div>
                     <p className="font-semibold">{user.full_name}</p>
                     <p className="text-sm text-gray-500">
@@ -284,13 +268,17 @@ const AdminView = ({
   </Tabs>
 );
 
+// --- MAIN PAGE COMPONENT ---
+
 export default function UserManagementPage() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
+  // Form States
   const [newFullName, setNewFullName] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -304,25 +292,26 @@ export default function UserManagementPage() {
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<UserAccount | null>(null);
-  const [editFormData, setEditFormData] = useState({
-    full_name: "",
-    username: "",
-    role: "",
-    is_active: true,
-    password: "",
-    confirm_password: "",
-  });
+  const [editFormData, setEditFormData] = useState({ full_name: "", username: "", role: "", is_active: true, password: "", confirm_password: "" });
+
+  // --- KUNCI UTAMA PERBAIKAN ---
+  const API_BASE = "/api";
 
   const fetchCurrentUser = async () => {
     try {
-      const response = await api.get("/api/profile");
+      console.log("Fetching current user profile via Proxy...");
+      const response = await axios.get(`${API_BASE}/profile`, { withCredentials: true });
+
+      console.log("Profile response:", response.data);
       if (response.data?.data?.[0]) {
         const userData = response.data.data[0];
         setCurrentUser(userData);
         if (userData.role === "admin") fetchUsers();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch current user", error);
+      const msg = error.response?.data?.detail || error.message || "Failed to load profile";
+      setGlobalError(msg);
     } finally {
       setIsCheckingAuth(false);
     }
@@ -331,10 +320,10 @@ export default function UserManagementPage() {
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
     try {
-      const response = await api.get("/api/users");
+      const response = await axios.get(`${API_BASE}/users`, { withCredentials: true });
       if (response.data?.data) setUsers(response.data.data);
     } catch (error: any) {
-      if (error.response?.status !== 401) setRegisterMessage({ type: "error", text: "Failed to load user list." });
+      console.error("Fetch Users Error:", error);
     } finally {
       setIsLoadingUsers(false);
     }
@@ -346,55 +335,42 @@ export default function UserManagementPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword !== newConfirmPassword) {
-      setRegisterMessage({ type: "error", text: "Passwords do not match." });
-      return;
-    }
+    if (newPassword !== newConfirmPassword) return setRegisterMessage({ type: "error", text: "Passwords do not match." });
     setIsRegistering(true);
-    setRegisterMessage(null);
     try {
-      await api.post("/api/auth/register", {
-        full_name: newFullName,
-        username: newUsername.toUpperCase(),
-        password: newPassword,
-        confirm_password: newConfirmPassword,
-        role: newRole,
-      });
-      setRegisterMessage({ type: "success", text: "User registered successfully!" });
+      await axios.post(
+        `${API_BASE}/users/register`,
+        {
+          full_name: newFullName,
+          username: newUsername.toUpperCase(),
+          password: newPassword,
+          confirm_password: newConfirmPassword,
+          role: newRole,
+        },
+        { withCredentials: true }
+      );
+      setRegisterMessage({ type: "success", text: "User registered!" });
       setNewFullName("");
       setNewUsername("");
       setNewPassword("");
       setNewConfirmPassword("");
-      setNewRole("staff");
       fetchUsers();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || "Registration failed.";
-      setRegisterMessage({ type: "error", text: errorMessage });
+      setRegisterMessage({ type: "error", text: error.response?.data?.detail || "Registration failed." });
     } finally {
       setIsRegistering(false);
     }
   };
 
   const handleProfileUpdate = async (payload: any) => {
-    if (!currentUser) throw new Error("Current user not found");
-    if (payload.new_password && payload.new_password !== payload.confirm_new_password) {
-      setUpdateMessage({ type: "error", text: "New passwords do not match." });
-      throw new Error("Passwords do not match");
-    }
-    if (payload.new_password && !payload.current_password) {
-      setUpdateMessage({ type: "error", text: "Current password is required to set a new one." });
-      throw new Error("Current password required");
-    }
+    if (!currentUser) return;
     setIsUpdating(true);
-    setUpdateMessage(null);
     try {
-      await api.put(`/api/users/${currentUser.user_id}`, payload);
-      setUpdateMessage({ type: "success", text: "Profile updated successfully!" });
-      await fetchCurrentUser();
+      await axios.put(`${API_BASE}/users/${currentUser.user_id}`, payload, { withCredentials: true });
+      setUpdateMessage({ type: "success", text: "Profile updated!" });
+      fetchCurrentUser();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || "Failed to update profile.";
-      setUpdateMessage({ type: "error", text: errorMessage });
-      throw error;
+      setUpdateMessage({ type: "error", text: error.response?.data?.detail || "Failed to update." });
     } finally {
       setIsUpdating(false);
     }
@@ -416,46 +392,51 @@ export default function UserManagementPage() {
   const handleUpdateUserByAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userToEdit) return;
-
-    if (editFormData.password && editFormData.password !== editFormData.confirm_password) {
-      setUpdateMessage({ type: "error", text: "New passwords do not match." });
-      return;
-    }
-
-    const payload: { [key: string]: any } = {};
-    if (editFormData.full_name !== userToEdit.full_name) payload.full_name = editFormData.full_name;
-    if (editFormData.username !== userToEdit.username) payload.username = editFormData.username.toUpperCase();
-    if (editFormData.role !== userToEdit.role) payload.role = editFormData.role;
-    if (editFormData.is_active !== userToEdit.is_active) payload.is_active = editFormData.is_active;
-    if (editFormData.password) {
-      payload.password = editFormData.password;
-      payload.confirm_password = editFormData.confirm_password;
-    }
-
-    if (Object.keys(payload).length === 0) {
-      setUpdateMessage({ type: "error", text: "No changes detected." });
-      return;
-    }
-
     setIsUpdating(true);
-    setUpdateMessage(null);
+    const payload: any = { ...editFormData, username: editFormData.username.toUpperCase() };
+    if (!payload.password) {
+      delete payload.password;
+      delete payload.confirm_password;
+    }
+
     try {
-      await api.put(`/api/users/${userToEdit.user_id}`, payload);
-      setUpdateMessage({ type: "success", text: "User updated successfully!" });
+      await axios.put(`${API_BASE}/users/${userToEdit.user_id}`, payload, { withCredentials: true });
+      setUpdateMessage({ type: "success", text: "User updated!" });
       setIsEditModalOpen(false);
       fetchUsers();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || "Failed to update user.";
-      setUpdateMessage({ type: "error", text: errorMessage });
+      setUpdateMessage({ type: "error", text: error.response?.data?.detail || "Failed update." });
     } finally {
       setIsUpdating(false);
     }
   };
 
-  if (isCheckingAuth) {
+  if (isCheckingAuth)
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+
+  if (!currentUser && globalError) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header page="users" />
+        <main className="max-w-7xl mx-auto p-6 flex justify-center mt-20">
+          <Card className="max-w-md border-red-200 bg-red-50">
+            <CardHeader>
+              <CardTitle className="text-red-700 flex gap-2">
+                <Shield className="h-5 w-5" /> Access Denied
+              </CardTitle>
+              <CardDescription>{globalError}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="destructive" onClick={() => (window.location.href = "/auth")} className="w-full">
+                Go to Login
+              </Button>
+            </CardContent>
+          </Card>
+        </main>
       </div>
     );
   }
@@ -493,47 +474,36 @@ export default function UserManagementPage() {
               openEditModal={openEditModal}
             />
           </div>
-        ) : currentUser ? (
+        ) : (
           <div className="flex justify-center">
             <UserView
-              currentUser={currentUser}
+              currentUser={currentUser!}
               handleProfileUpdate={handleProfileUpdate}
               isUpdatingProfile={isUpdating}
               updateMessage={updateMessage}
             />
           </div>
-        ) : (
-          <p>Could not load user profile.</p>
         )}
       </main>
 
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit User: {userToEdit?.full_name}</DialogTitle>
-            <DialogDescription>Update the user's details below. Only fill in the fields you want to change.</DialogDescription>
+            <DialogTitle>Edit User</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleUpdateUserByAdmin} className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label htmlFor="fullname-edit">Full Name</Label>
-              <Input
-                id="fullname-edit"
-                value={editFormData.full_name}
-                onChange={(e) => setEditFormData({ ...editFormData, full_name: e.target.value })}
-              />
+              <Label>Full Name</Label>
+              <Input value={editFormData.full_name} onChange={(e) => setEditFormData({ ...editFormData, full_name: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="username-edit">Username</Label>
-              <Input
-                id="username-edit"
-                value={editFormData.username}
-                onChange={(e) => setEditFormData({ ...editFormData, username: e.target.value.toUpperCase() })}
-              />
+              <Label>Username</Label>
+              <Input value={editFormData.username} onChange={(e) => setEditFormData({ ...editFormData, username: e.target.value.toUpperCase() })} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role-edit">Role</Label>
-              <Select value={editFormData.role} onValueChange={(value) => setEditFormData({ ...editFormData, role: value })}>
-                <SelectTrigger id="role-edit">
+              <Label>Role</Label>
+              <Select value={editFormData.role} onValueChange={(val) => setEditFormData({ ...editFormData, role: val })}>
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -544,44 +514,25 @@ export default function UserManagementPage() {
               </Select>
             </div>
             <div className="flex items-center space-x-2">
-              <Switch
-                id="is-active-edit"
-                checked={editFormData.is_active}
-                onCheckedChange={(checked) => setEditFormData({ ...editFormData, is_active: checked })}
-              />
-              <Label htmlFor="is-active-edit">User is Active</Label>
+              <Switch checked={editFormData.is_active} onCheckedChange={(c) => setEditFormData({ ...editFormData, is_active: c })} />
+              <Label>User is Active</Label>
             </div>
             <hr />
-            <p className="text-sm text-gray-500 pt-2">Leave password fields blank to keep it unchanged.</p>
             <div className="space-y-2">
-              <Label htmlFor="password-edit">New Password</Label>
-              <Input
-                id="password-edit"
-                type="password"
-                value={editFormData.password}
-                onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
-              />
+              <Label>New Password (Optional)</Label>
+              <Input type="password" value={editFormData.password} onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password-edit">Confirm New Password</Label>
+              <Label>Confirm Password</Label>
               <Input
-                id="confirm-password-edit"
                 type="password"
                 value={editFormData.confirm_password}
                 onChange={(e) => setEditFormData({ ...editFormData, confirm_password: e.target.value })}
               />
             </div>
-            {updateMessage && (
-              <p className={`text-sm text-center font-medium ${updateMessage.type === "success" ? "text-green-600" : "text-red-600"}`}>
-                {updateMessage.text}
-              </p>
-            )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
-                Cancel
-              </Button>
               <Button type="submit" disabled={isUpdating}>
-                {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+                {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
               </Button>
             </DialogFooter>
           </form>
