@@ -1,4 +1,5 @@
-[
+{
+  "rooms": [
   {
     "room_type_desc": "Deluxe",
     "built_date": "2018-11-30",
@@ -59080,3 +59081,4 @@
     "room_count": 2
   }
 ]
+}

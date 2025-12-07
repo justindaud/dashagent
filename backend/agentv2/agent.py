@@ -28,64 +28,55 @@ from agentv2.scripts.experience_func import fetch_experience, ingest_insights, i
 
 console = Console()
 
+MAX_AGENT_WORKERS = 2
+AGENT_SEMAPHORE = asyncio.Semaphore(MAX_AGENT_WORKERS)
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL.startswith("postgresql://") and "+" not in DATABASE_URL.split(":", 1)[0]:
-    # rewrite 'postgresql://' -> 'postgresql+asyncpg://'
     DATABASE_URL = "postgresql+asyncpg://" + DATABASE_URL[len("postgresql://"):]
 elif DATABASE_URL.startswith("mysql://") and "+" not in DATABASE_URL.split(":", 1)[0]:
-    # rewrite 'mysql://' -> 'mysql+aiomysql://'
     DATABASE_URL = "mysql+aiomysql://" + DATABASE_URL[len("mysql://"):]
 elif DATABASE_URL.startswith("sqlite://") and "+" not in DATABASE_URL.split(":", 1)[0]:
-    # rewrite 'sqlite:///' -> 'sqlite+aiosqlite:///'
     DATABASE_URL = DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://", 1)
 
 engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
 
 def make_sa_session(session_id: str) -> SQLAlchemySession:
-    # create_tables=True is convenient for dev; in production use migrations
     return SQLAlchemySession(
         session_id=session_id,
         engine=engine,
         create_tables=False,
     )
 
-# Stream events
 async def stream_once(result, session_id: str, user_id: str):
     """Jalankan satu turn dengan streaming events (session-managed)."""
 
     console.print(Panel.fit("[bold]=== Run Starting ===[/bold]", border_style="cyan"))
 
-    # Tampilkan delta token + event penting (tool calls & outputs)
-    assistant_buffer = []  # untuk merakit teks assistant dari delta
-    tool_events = []       # koleksi event tool untuk distilasi
+    assistant_buffer = []
+    tool_events = []
     agent_updates_count = 0
     
     async for event in result.stream_events():
         et = event.type
 
-        # 1) Agent updates - REDUCED: Only show first few, then suppress
         if et == "agent_updated_stream_event":
             agent_updates_count += 1
-            if agent_updates_count <= 2:  # Only show first 2 agent updates
+            if agent_updates_count <= 2:
                 console.print(f"[cyan]Agent updated →[/cyan] [bold]{event.new_agent.name if hasattr(event.new_agent, 'name') else 'Unknown'}[/bold]")
             continue
 
-        # 2) Token deltas - OPTIMIZED: Batch processing instead of per-token
         if et == "raw_response_event" and isinstance(event.data, ResponseTextDeltaEvent):
-            # Collect tokens but don't print each one (major TPM saver)
             assistant_buffer.append(event.data.delta)
             continue
 
-        # 3) Item-level events - OPTIMIZED: Only essential tool events
         if et == "run_item_stream_event":
             it = event.item
             if it.type == "tool_call_item":
-                # Tool calls - Simplified output
                 tool_name = getattr(it, 'name', 'unknown_tool')
                 console.print(f"\n[yellow]→ Tool: {tool_name}[/yellow]")
                 
-                # Minimal tool input display
                 if getattr(it, "input", None):
                     input_str = str(it.input)
                     if len(input_str) > 100: input_str = input_str[:100] + "…"
@@ -98,11 +89,9 @@ async def stream_once(result, session_id: str, user_id: str):
                 })
                 
             elif it.type == "tool_call_output_item":
-                # Tool outputs - Simplified
                 tool_name = getattr(it, 'name', 'unknown_tool')
                 out = getattr(it, "output", "")
                 
-                # Truncate long outputs
                 output_str = str(out)
                 if len(output_str) > 200: output_str = output_str[:200] + "…"
                 console.print(f"  Output: {output_str}")
@@ -114,13 +103,11 @@ async def stream_once(result, session_id: str, user_id: str):
                 })
                 
             elif it.type == "message_output_item":
-                # Message chunks
                 text = ItemHelpers.text_message_output(it) or ""
                 assistant_buffer.append(text)
 
     console.print("\n[bold]=== Run Complete ===[/bold]\n")
 
-    # Final output - Only show if significant content
     final_text = "".join(assistant_buffer).strip() or (result.final_output or "")
     if final_text:
         try:
@@ -204,7 +191,6 @@ class DashboardAgent:
         self.user_input = user_input
         self.session_id = session_id
         self.user_id = user_id
-        # Gunakan session yang diberikan atau buat yang baru
         self.session = session or make_sa_session(session_id)
 
     # decomposing prompt into multiple prompts
@@ -314,28 +300,55 @@ class DashboardAgent:
                 except Exception as e:
                     console.print(f"[red]Error updating memory:[/red] {e}")
 
-    async def run_and_collect(session_id: str, user_id: str, user_input: str, user_role: Optional[str] = None, run_id: Optional[str] = None) -> Dict[str, Any]:
+    async def run_and_collect(
+        session_id: str,
+        user_id: str,
+        user_input: str,
+        user_role: Optional[str] = None,
+        run_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         run_id = run_id or uuid.uuid4().hex
 
         start_marker_id = await get_last_message_id(engine, session_id)
 
-        console.print(f"[bold]accepted[/bold] session_id={session_id} user_id={user_id} role={user_role} prompt={user_input!r} run={run_id}")
+        console.print(
+            f"[bold]accepted[/bold] session_id={session_id} "
+            f"user_id={user_id} role={user_role} prompt={user_input!r} run={run_id}"
+        )
 
-        sa_session = make_sa_session(session_id)
-        agent = DashboardAgent(user_input=user_input, session_id=session_id, user_id=user_id, session=sa_session)
+        async with AGENT_SEMAPHORE:
+            console.print(
+                f"[yellow]Agent slot acquired[/yellow] "
+                f"(session_id={session_id}, run_id={run_id})"
+            )
 
-        ok, err = True, None
-        try:
-            analyzer_task = asyncio.create_task(agent.analyzer())
-            memory_task  = asyncio.create_task(agent.memory_updater())
-            await asyncio.gather(analyzer_task, memory_task)
-        except Exception as e:
-            ok, err = False, str(e)
-            console.print(f"[red]runner.error[/red] session_id={session_id} user_id={user_id} role={user_role} run={run_id} error={e}")
+            sa_session = make_sa_session(session_id)
+            agent = DashboardAgent(
+                user_input=user_input,
+                session_id=session_id,
+                user_id=user_id,
+                session=sa_session,
+            )
 
-        await tag_messages_with_run_id(engine, session_id, run_id, after_id=start_marker_id)
+            ok, err = True, None
+            try:
+                analyzer_task = asyncio.create_task(agent.analyzer())
+                memory_task  = asyncio.create_task(agent.memory_updater())
+                await asyncio.gather(analyzer_task, memory_task)
+            except Exception as e:
+                ok, err = False, str(e)
+                console.print(
+                    f"[red]runner.error[/red] session_id={session_id} "
+                    f"user_id={user_id} role={user_role} run={run_id} error={e}"
+                )
 
-        messages = await fetch_agent_messages(engine, session_id, run_id=run_id, limit=500)
+            await tag_messages_with_run_id(engine, session_id, run_id, after_id=start_marker_id)
+            messages = await fetch_agent_messages(engine, session_id, run_id=run_id, limit=500)
+
+            console.print(
+                f"[green]Agent slot released[/green] "
+                f"(session_id={session_id}, run_id={run_id})"
+            )
 
         return {
             "message": "Agent finished",
@@ -345,3 +358,4 @@ class DashboardAgent:
             "run_id": run_id,
             "messages": messages,
         }
+
