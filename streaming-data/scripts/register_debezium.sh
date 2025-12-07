@@ -1,6 +1,6 @@
 set -euo pipefail
 
-CONNECT_URL=${CONNECT_URL:-http://localhost:8083}
+CONNECT_URL=${CONNECT_URL:-http://194.233.69.219:8083}
 
 echo "Registering Debezium Postgres source..."
 curl -s -X PUT "$CONNECT_URL/connectors/debezium-postgres-source/config" \
@@ -10,10 +10,10 @@ curl -s -X PUT "$CONNECT_URL/connectors/debezium-postgres-source/config" \
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
     "plugin.name": "pgoutput",
 
-    "database.hostname": "postgres-source-db",
-    "database.port": "5432",
+    "database.hostname": "194.233.69.219",
+    "database.port": "5431",
     "database.user": "admin",
-    "database.password": "zildiray123",
+    "database.password": "pulangkeuttara",
     "database.dbname": "dash_agent_db",
 
     "topic.prefix": "postgres_server",
