@@ -1,5 +1,5 @@
 # app/main.py
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from contextlib import asynccontextmanager
@@ -8,6 +8,7 @@ from sqlalchemy import text
 from app.db.database import Base, engine
 from app.db.clickhouse import clickhouse_engine
 from app.config.settings import settings
+from app.utils.cookies import set_auth_cookie
 from app.routers.auth_routes import router as auth_router
 from app.routers.user_routes import router as user_router
 from app.routers.profile_routes import router as profile_router
@@ -101,8 +102,16 @@ setup_exception_handlers(app)
 def read_root():
     return {"message": "DashAgent API is running!"}
 
+@app.middleware("http")
+async def sliding_session_middleware(request: Request, call_next):
+    response = await call_next(request)
+    
+    if hasattr(request.state, "new_token"):
+        set_auth_cookie(response, request.state.new_token)
 
-if __name__ == "__main__":
-    import uvicorn
+    return response
 
-    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.PORT, reload=False)
+# if __name__ == "__main__":
+#     import uvicorn
+
+#     uvicorn.run("app.main:app", host="0.0.0.0", port=settings.PORT, reload=False, --workers 2)

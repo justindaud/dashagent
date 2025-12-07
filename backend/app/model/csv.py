@@ -30,7 +30,7 @@ class CSVUpload(Base):
     uploaded_by = Column(String(36), ForeignKey("users.user_id"), nullable=False, index=True)
     deleted_by = Column(String(36), ForeignKey("users.user_id"), nullable=True)
     created_at = Column(DT_TZ_MS, default=now_jkt)
-    deleted_at = Column(DT_TZ_MS, nullable=True, onupdate=now_jkt)
+    deleted_at = Column(DT_TZ_MS, nullable=True)
     uploader = relationship("User", foreign_keys=[uploaded_by])
     deleter  = relationship("User", foreign_keys=[deleted_by])
     

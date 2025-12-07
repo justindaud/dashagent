@@ -12,7 +12,7 @@ from app.controllers.analytics_controller import (
 )
 from app.db.clickhouse import get_clickhouse_db
 from app.db.database import get_db
-from app.middlewares.middleware import get_current_user
+from app.middlewares.middleware import get_current_user, require_manager
 from app.model.user import User
 from app.schemas.response import ApiResponse
 from app.schemas.analytics import DimensionsResponse, AggregateResponse
@@ -29,7 +29,7 @@ def get_dimensions(
     start: str = Query(..., description="Start date YYYY-MM-DD (inclusive)"),
     end: str = Query(..., description="End date YYYY-MM-DD (inclusive)"),
     db: Session = Depends(get_clickhouse_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_manager),
 ) -> ApiResponse[DimensionsResponse]:
     try:
         start_dt: date = datetime.fromisoformat(start).date()
@@ -73,7 +73,7 @@ def get_aggregate(
     include_other: bool = Query(False),
     db_ch: Session = Depends(get_clickhouse_db),
     db_pg: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_manager),
 ) -> ApiResponse[AggregateResponse]:
     try:
         start_dt = datetime.fromisoformat(start).date()
