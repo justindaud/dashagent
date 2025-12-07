@@ -52,10 +52,10 @@ export function StatCards({ stats }: StatCardsProps) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      <StatCard icon={Users} title="Total Guests" value={stats.total_guests.toLocaleString("id-ID")} />
-      <StatCard icon={Calendar} title="Reservations" value={stats.total_reservations.toLocaleString("id-ID")} />
-      <StatCard icon={MessageCircle} title="Chats" value={stats.total_chats.toLocaleString("id-ID")} />
-      <StatCard icon={Barcode} title="Transactions" value={stats.total_transactions.toLocaleString("id-ID")} />
+      <StatCard icon={Users} title="Total Guests" value={stats.total_guests?.toLocaleString("id-ID") || "0"} />
+      <StatCard icon={Calendar} title="Reservations" value={stats.total_reservations?.toLocaleString("id-ID") || "0"} />
+      <StatCard icon={MessageCircle} title="Chats" value={stats.total_chats?.toLocaleString("id-ID") || "0"} />
+      <StatCard icon={Barcode} title="Transactions" value={stats.total_transactions?.toLocaleString("id-ID") || "0"} />
     </div>
   );
 }

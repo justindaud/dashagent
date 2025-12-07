@@ -61,7 +61,7 @@ export default function ChatPage() {
   const fetchConversations = async () => {
     setIsLoadingConversations(true);
     try {
-      const response = await api.get("/api/sessions");
+      const response = await api.get("/sessions/");
       const fetchedSessions = (response.data.data || []).map((s: any) => ({
         ...s,
         messages: [],
@@ -87,7 +87,7 @@ export default function ChatPage() {
 
   const handleNewChat = async () => {
     try {
-      const response = await api.post("/api/sessions", {});
+      const response = await api.post("/sessions/", {});
       const newSessionData = response.data.data[0];
       const newConversation: Conversation = {
         session_id: newSessionData.session_id,
@@ -111,7 +111,7 @@ export default function ChatPage() {
   const fetchMessagesForSession = async (sessionId: string) => {
     setConversations((prev) => prev.map((c) => (c.session_id === sessionId ? { ...c, isLoadingMessages: true } : c)));
     try {
-      const response = await api.get(`/api/sessions/${sessionId}/messages`);
+      const response = await api.get(`/sessions/${sessionId}/messages/`);
       const sessionData = response.data.data[0];
       let newMessages: Message[] = [];
       if (sessionData && sessionData.runs) {
@@ -155,7 +155,7 @@ export default function ChatPage() {
     setChatMessage("");
     setIsLoadingReply(true);
     try {
-      await api.post(`/api/sessions/${activeConversationId}/run`, {
+      await api.post(`/sessions/${activeConversationId}/run/`, {
         user_input: messageToSend,
       });
       await fetchMessagesForSession(activeConversationId);
@@ -196,7 +196,7 @@ export default function ChatPage() {
       return;
     }
     try {
-      await api.put(`/api/sessions/${editingConversationId}`, {
+      await api.put(`/sessions/${editingConversationId}/`, {
         title: editingTitle,
       });
       setConversations((prev) => prev.map((c) => (c.session_id === editingConversationId ? { ...c, title: editingTitle } : c)));
@@ -238,9 +238,9 @@ export default function ChatPage() {
         </div>
 
         <main className="flex-1 flex flex-col ">
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl w-full mx-auto">
+          <div className="flex-1 overflow-y-auto px-4 pb-4 md:p-6 space-y-6 max-w-4xl w-full mx-auto hide-scrollbar">
             {/* === Mobile Header & Sidebar === */}
-            <div className="md:hidden flex items-center gap-2 pb-2 border-b">
+            <div className="md:hidden flex items-center gap-2 py-2 border-b sticky top-0 bg-white z-10">
               <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
                 <SheetTrigger asChild>
                   <Button variant="outline" size="icon">
